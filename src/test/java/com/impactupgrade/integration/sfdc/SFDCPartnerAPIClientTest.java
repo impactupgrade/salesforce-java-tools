@@ -5,6 +5,8 @@ import com.sforce.soap.partner.sobject.SObject;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.Calendar;
+
 public class SFDCPartnerAPIClientTest {
 
   private static final SFDCPartnerAPIClient CLIENT = new SFDCPartnerAPIClient("", "", ""){};
@@ -38,6 +40,7 @@ public class SFDCPartnerAPIClientTest {
     sObject.setSObjectField("AccountId", "a123");
     // query result fields are always strings, so test for conversion
     sObject.setSObjectField("Age__c", "35.0");
+    sObject.setSObjectField("Birthdate", "1985-10-30");
     // query result fields are always strings, so test for conversion
     sObject.setSObjectField("Email_Opt_Out__c", "true");
     sObject.setSObjectField("FirstName", "Brett");
@@ -54,6 +57,10 @@ public class SFDCPartnerAPIClientTest {
     Assert.assertEquals("c123", contact.getId());
     Assert.assertEquals("a123", contact.getAccountId());
     Assert.assertEquals(Double.valueOf(35.0), contact.getAge__c());
+    Assert.assertEquals(1985, contact.getBirthdate().get(Calendar.YEAR));
+    // reminder: Java time is horrible, and month starts at 0, because reasons
+    Assert.assertEquals(10, contact.getBirthdate().get(Calendar.MONTH) + 1);
+    Assert.assertEquals(30, contact.getBirthdate().get(Calendar.DATE));
     Assert.assertEquals(true, contact.getEmail_Opt_Out__c());
     Assert.assertEquals("Brett", contact.getFirstName());
     Assert.assertEquals("Meyer", contact.getLastName());

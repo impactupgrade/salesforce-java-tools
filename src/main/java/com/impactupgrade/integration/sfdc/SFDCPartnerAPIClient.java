@@ -14,8 +14,11 @@ import org.apache.logging.log4j.Logger;
 import java.beans.Introspector;
 import java.beans.PropertyDescriptor;
 import java.lang.reflect.Method;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +30,9 @@ import java.util.stream.Stream;
 public class SFDCPartnerAPIClient {
 
   private static final Logger log = LogManager.getLogger(SFDCPartnerAPIClient.class.getName());
+
+  // most Calendar fields are simple dates, no time
+  private static final DateFormat SDF = new SimpleDateFormat("yyyy-MM-dd");
 
   private final String username;
   private final String password;
@@ -90,7 +96,7 @@ public class SFDCPartnerAPIClient {
               value = toEnterprise(setter.getParameterTypes()[0], (SObject) value);
             }
 
-            // convert primitive wrappers: Boolean, Byte, Character, Double, Float, Integer, Long, Short
+            // convert primitive wrappers + Calendar
             if (value instanceof String) {
               Class<?> argType = setter.getParameterTypes()[0];
               if (Boolean.class.equals(argType)) {
@@ -109,6 +115,10 @@ public class SFDCPartnerAPIClient {
                 value = Long.valueOf((String) value);
               } else if (Short.class.equals(argType)) {
                 value = Short.valueOf((String) value);
+              } else if (Calendar.class.equals(argType)) {
+                Calendar c = Calendar.getInstance();
+                c.setTime(SDF.parse((String) value));
+                value = c;
               }
             }
 

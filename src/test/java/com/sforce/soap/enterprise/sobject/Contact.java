@@ -6,6 +6,7 @@ import com.sforce.ws.parser.XmlInputStream;
 import com.sforce.ws.parser.XmlOutputStream;
 
 import java.io.IOException;
+import java.util.Calendar;
 
 /**
  * This is a generated class for the SObject Enterprise API.
@@ -110,6 +111,31 @@ public class Contact extends com.sforce.soap.enterprise.sobject.SObject {
 
   private void writeFieldAge__c(XmlOutputStream __out, TypeMapper __typeMapper) throws IOException {
     __typeMapper.writeObject(__out, this._lookupTypeInfo("Age__c", "urn:sobject.enterprise.soap.sforce.com", "Age__c", "http://www.w3.org/2001/XMLSchema", "double", 0, 1, true), this.Age__c, this.Age__c__is_set);
+  }
+
+  private boolean Birthdate__is_set = false;
+
+  private Calendar Birthdate;
+
+  public Calendar getBirthdate() {
+    return this.Birthdate;
+  }
+
+  public void setBirthdate(Calendar Birthdate) {
+    this.Birthdate = Birthdate;
+    this.Birthdate__is_set = true;
+  }
+
+  protected void setBirthdate(XmlInputStream __in, TypeMapper __typeMapper) throws IOException, ConnectionException {
+    __in.peekTag();
+    if (__typeMapper.isElement(__in, this._lookupTypeInfo("Birthdate", "urn:sobject.enterprise.soap.sforce.com", "Birthdate", "http://www.w3.org/2001/XMLSchema", "date", 0, 1, true))) {
+      this.setBirthdate((Calendar)__typeMapper.readObject(__in, this._lookupTypeInfo("Birthdate", "urn:sobject.enterprise.soap.sforce.com", "Birthdate", "http://www.w3.org/2001/XMLSchema", "date", 0, 1, true), Calendar.class));
+    }
+
+  }
+
+  private void writeFieldBirthdate(XmlOutputStream __out, TypeMapper __typeMapper) throws IOException {
+    __typeMapper.writeObject(__out, this._lookupTypeInfo("Birthdate", "urn:sobject.enterprise.soap.sforce.com", "Birthdate", "http://www.w3.org/2001/XMLSchema", "date", 0, 1, true), this.Birthdate, this.Birthdate__is_set);
   }
 
   private boolean Email_Opt_Out__c__is_set = false;
