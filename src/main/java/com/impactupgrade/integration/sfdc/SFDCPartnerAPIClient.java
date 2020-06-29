@@ -207,15 +207,15 @@ public class SFDCPartnerAPIClient {
   // records of the same type to be inserted without explicit IDs. We're always inserting with null IDs, allowing
   // SF to auto-generate them. :(
 
-  public boolean insert(Object object) throws InterruptedException {
+  public SaveResult insert(Object object) throws InterruptedException {
     return _insert(0, toPartner(object));
   }
 
-  public boolean update(Object... objects) throws InterruptedException {
+  public SaveResult[] update(Object... objects) throws InterruptedException {
     return _update(0, toPartner(objects));
   }
 
-  public boolean delete(Object... objects) throws InterruptedException {
+  public DeleteResult[] delete(Object... objects) throws InterruptedException {
     return _delete(0, toPartner(objects));
   }
 
@@ -293,12 +293,14 @@ public class SFDCPartnerAPIClient {
     }
   }
 
-  private boolean _insert(int count, SObject sObject) throws InterruptedException {
+  private SaveResult _insert(int count, SObject sObject) throws InterruptedException {
     String clazz = sObject.getClass().getSimpleName();
 
     if (count == 6) {
       log.error("unable to complete insert {} by attempt {}", clazz, count);
-      return false;
+      SaveResult saveResult = new SaveResult();
+      saveResult.setSuccess(false);
+      return saveResult;
     }
 
     log.info("inserting {}", clazz);
@@ -320,7 +322,7 @@ public class SFDCPartnerAPIClient {
       // for convenience, set the ID back on the sObject so it can be directly reused for further processing
       sObject.setId(saveResult.getId());
 
-      return saveResult.isSuccess();
+      return saveResult;
     } catch (ConnectionException e) {
       log.warn("insert attempt {} failed due to connection issues; retrying {} in 10s", count, clazz, e);
       Thread.sleep(10000);
@@ -328,29 +330,27 @@ public class SFDCPartnerAPIClient {
     }
   }
 
-  private boolean _update(int count, SObject... sObjects) throws InterruptedException {
+  private SaveResult[] _update(int count, SObject... sObjects) throws InterruptedException {
     String clazz = sObjects[0].getClass().getSimpleName();
     Map<String, SObject> byId = Arrays.stream(sObjects).collect(Collectors.toMap(SObject::getId, Function.identity()));
     String ids = byId.values().stream().map(SObject::getId).collect(Collectors.joining(","));
 
     if (count == 6) {
       log.error("unable to complete update {} {} by attempt {}", clazz, ids, count);
-      return false;
+      SaveResult saveResult = new SaveResult();
+      saveResult.setSuccess(false);
+      return new SaveResult[]{saveResult};
     }
 
     log.info("updating {} {}", clazz, ids);
 
-    boolean success = true;
-
     try {
       SaveResult[] saveResults = partnerConnection.get().update(sObjects);
-      for (SaveResult saveResult : saveResults) {
-        log.info(saveResult);
 
-        // mark the whole set as a failure if any attempt failed
-        if (!saveResult.isSuccess()) {
-          success = false;
-        }
+      for (int i = 0; i < saveResults.length; i++) {
+        SaveResult saveResult = saveResults[i];
+
+        log.info(saveResult);
 
         // if any update failed due to a row lock, retry that single object on its own
         // a few different types of lock-related error codes, so don't use the enum itself
@@ -359,16 +359,12 @@ public class SFDCPartnerAPIClient {
                 && (e.getStatusCode().toString().contains("LOCK") || e.getMessage().contains("LOCK")))) {
           log.info("update attempt {} failed due to locks; retrying {} {} in 10s", count, clazz, saveResult.getId());
           Thread.sleep(10000);
-          boolean retryResult = _update(count + 1, byId.get(saveResult.getId()));
-
-          // mark the whole set as a failure if any attempt failed
-          if (!retryResult) {
-            success = false;
-          }
+          SaveResult retryResult = _update(count + 1, byId.get(saveResult.getId()))[0];
+          saveResults[i] = retryResult;
         }
       }
 
-      return success;
+      return saveResults;
     } catch (ConnectionException e) {
       log.warn("update attempt {} failed due to connection issues; retrying {} {} in 10s", count, clazz, ids, e);
       Thread.sleep(10000);
@@ -376,29 +372,27 @@ public class SFDCPartnerAPIClient {
     }
   }
 
-  private boolean _delete(int count, SObject... sObjects) throws InterruptedException {
+  private DeleteResult[] _delete(int count, SObject... sObjects) throws InterruptedException {
     String clazz = sObjects[0].getClass().getSimpleName();
     Map<String, SObject> byId = Arrays.stream(sObjects).collect(Collectors.toMap(SObject::getId, Function.identity()));
     String ids = byId.values().stream().map(SObject::getId).collect(Collectors.joining(","));
 
     if (count == 6) {
       log.error("unable to complete delete {} {} by attempt {}", clazz, ids, count);
-      return false;
+      DeleteResult deleteResult = new DeleteResult();
+      deleteResult.setSuccess(false);
+      return new DeleteResult[]{deleteResult};
     }
 
     log.info("deleteing {} {}", clazz, ids);
 
-    boolean success = true;
-
     try {
       DeleteResult[] deleteResults = partnerConnection.get().delete(byId.keySet().toArray(new String[0]));
-      for (DeleteResult deleteResult : deleteResults) {
-        log.info(deleteResult);
 
-        // mark the whole set as a failure if any attempt failed
-        if (!deleteResult.isSuccess()) {
-          success = false;
-        }
+      for (int i = 0; i < deleteResults.length; i++) {
+        DeleteResult deleteResult = deleteResults[i];
+
+        log.info(deleteResult);
 
         // if any delete failed due to a row lock, retry that single object on its own
         // a few different types of lock-related error codes, so don't use the enum itself
@@ -407,16 +401,12 @@ public class SFDCPartnerAPIClient {
                 && (e.getStatusCode().toString().contains("LOCK") || e.getMessage().contains("LOCK")))) {
           log.info("delete attempt {} failed due to locks; retrying {} {} in 10s", count, clazz, deleteResult.getId());
           Thread.sleep(10000);
-          boolean retryResult = _delete(count + 1, byId.get(deleteResult.getId()));
-
-          // mark the whole set as a failure if any attempt failed
-          if (!retryResult) {
-            success = false;
-          }
+          DeleteResult retryResult = _delete(count + 1, byId.get(deleteResult.getId()))[0];
+          deleteResults[i] = retryResult;
         }
       }
 
-      return success;
+      return deleteResults;
     } catch (ConnectionException e) {
       log.warn("delete attempt {} failed due to connection issues; retrying {} {} in 10s", count, clazz, ids, e);
       Thread.sleep(10000);
