@@ -319,9 +319,6 @@ public class SFDCPartnerAPIClient {
         return _insert(count + 1, sObject);
       }
 
-      // for convenience, set the ID back on the sObject so it can be directly reused for further processing
-      sObject.setId(saveResult.getId());
-
       return saveResult;
     } catch (ConnectionException e) {
       log.warn("insert attempt {} failed due to connection issues; retrying {} in 10s", count, clazz, e);
