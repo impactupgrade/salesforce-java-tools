@@ -90,11 +90,7 @@ public class SFDCPartnerAPIClient {
               value = toEnterprise(setter.getParameterTypes()[0], (SObject) value);
             }
 
-            try {
-              setter.invoke(object, value);
-            } catch (Exception e) {
-              System.out.println(object.getClass().getSimpleName() + "." + setter.getName() + " " + value);
-            }
+            setter.invoke(object, value);
           }
         }
       }
