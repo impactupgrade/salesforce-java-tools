@@ -6,7 +6,7 @@
 
   <groupId>com.impactupgrade.integration</groupId>
   <artifactId>salesforce-java-tools</artifactId>
-  <version>0.0.1.Final</version>
+  <version>0.0.1-SNAPSHOT</version>
 
   <url>https://github.com/impactupgrade/salesforce-java-tools</url>
   <scm>
