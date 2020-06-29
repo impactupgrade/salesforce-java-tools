@@ -90,7 +90,13 @@ public class SFDCPartnerAPIClient {
               value = toEnterprise(setter.getParameterTypes()[0], (SObject) value);
             }
 
-            setter.invoke(object, value);
+            try {
+              setter.invoke(object, value);
+            } catch (Exception e) {
+              log.error("failed to set value {} on {}.{}", value, eClass.getSimpleName(), name);
+              // re-throw so the next layer catches it
+              throw new RuntimeException(e);
+            }
           }
         }
       }
