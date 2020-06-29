@@ -36,8 +36,10 @@ public class SFDCPartnerAPIClientTest {
     SObject sObject = new SObject("Contact");
     sObject.setId("c123");
     sObject.setSObjectField("AccountId", "a123");
-    sObject.setSObjectField("Age__c", 35.0);
-    sObject.setSObjectField("Email_Opt_Out__c", true);
+    // query result fields are always strings, so test for conversion
+    sObject.setSObjectField("Age__c", "35.0");
+    // query result fields are always strings, so test for conversion
+    sObject.setSObjectField("Email_Opt_Out__c", "true");
     sObject.setSObjectField("FirstName", "Brett");
     sObject.setSObjectField("LastName", "Meyer");
     sObject.setFieldsToNull(new String[]{"Phone", "Email"});

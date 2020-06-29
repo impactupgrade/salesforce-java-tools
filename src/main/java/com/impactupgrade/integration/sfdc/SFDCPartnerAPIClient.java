@@ -70,7 +70,7 @@ public class SFDCPartnerAPIClient {
       for (PropertyDescriptor propertyDescriptor :
           Introspector.getBeanInfo(object.getClass(), Object.class).getPropertyDescriptors()){
         Method setter = propertyDescriptor.getWriteMethod();
-        if (setter != null) {
+        if (setter != null && setter.getParameterCount() == 1) {
           String name = setter.getName().replaceFirst("set", "");
 
           // special handling for certain cases
@@ -88,6 +88,28 @@ public class SFDCPartnerAPIClient {
             if (value instanceof SObject) {
               // get the nested object type from the setter arg
               value = toEnterprise(setter.getParameterTypes()[0], (SObject) value);
+            }
+
+            // convert primitive wrappers: Boolean, Byte, Character, Double, Float, Integer, Long, Short
+            if (value instanceof String) {
+              Class<?> argType = setter.getParameterTypes()[0];
+              if (Boolean.class.equals(argType)) {
+                value = Boolean.valueOf((String) value);
+              } else if (Byte.class.equals(argType)) {
+                value = Byte.valueOf((String) value);
+              } else if (Character.class.equals(argType)) {
+                value = ((String) value).charAt(0);
+              } else if (Double.class.equals(argType)) {
+                value = Double.valueOf((String) value);
+              } else if (Float.class.equals(argType)) {
+                value = Float.valueOf((String) value);
+              } else if (Integer.class.equals(argType)) {
+                value = Integer.valueOf((String) value);
+              } else if (Long.class.equals(argType)) {
+                value = Long.valueOf((String) value);
+              } else if (Short.class.equals(argType)) {
+                value = Short.valueOf((String) value);
+              }
             }
 
             try {
