@@ -8,6 +8,8 @@
   <artifactId>salesforce-java-tools</artifactId>
   <version>0.0.1.Final</version>
 
+  <name>salesforce-java-tools</name>
+  <description>TODO</description>
   <url>https://github.com/impactupgrade/salesforce-java-tools</url>
   <scm>
     <url>https://github.com/impactupgrade/salesforce-java-tools</url>
