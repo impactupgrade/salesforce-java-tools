@@ -1,0 +1,1 @@
+NOTE: We're controlling a really, really small sample of a few SFDC Enterprise API auto-generated classes, purely for use in unit tests.
