@@ -192,6 +192,31 @@ public class Contact extends com.sforce.soap.enterprise.sobject.SObject {
     __typeMapper.writeObject(__out, _lookupTypeInfo("FirstName", "urn:sobject.enterprise.soap.sforce.com","FirstName","http://www.w3.org/2001/XMLSchema","string",0,1,true), FirstName, FirstName__is_set);
   }
 
+  private boolean isSalesforceSilly__c__is_set = false;
+
+  private Boolean isSalesforceSilly__c;
+
+  public Boolean getIsSalesforceSilly__c() {
+    return this.isSalesforceSilly__c;
+  }
+
+  public void setIsSalesforceSilly__c(Boolean isSalesforceSilly__c) {
+    this.isSalesforceSilly__c = isSalesforceSilly__c;
+    this.isSalesforceSilly__c__is_set = true;
+  }
+
+  protected void setIsSalesforceSilly__c(XmlInputStream __in, TypeMapper __typeMapper) throws IOException, ConnectionException {
+    __in.peekTag();
+    if (__typeMapper.isElement(__in, this._lookupTypeInfo("isSalesforceSilly__c", "urn:sobject.enterprise.soap.sforce.com", "isSalesforceSilly__c", "http://www.w3.org/2001/XMLSchema", "boolean", 0, 1, true))) {
+      this.setIsSalesforceSilly__c((Boolean)__typeMapper.readObject(__in, this._lookupTypeInfo("isSalesforceSilly__c", "urn:sobject.enterprise.soap.sforce.com", "isSalesforceSilly__c", "http://www.w3.org/2001/XMLSchema", "boolean", 0, 1, true), Boolean.class));
+    }
+
+  }
+
+  private void writeFieldIsSalesforceSilly__c(XmlOutputStream __out, TypeMapper __typeMapper) throws IOException {
+    __typeMapper.writeObject(__out, this._lookupTypeInfo("isSalesforceSilly__c", "urn:sobject.enterprise.soap.sforce.com", "isSalesforceSilly__c", "http://www.w3.org/2001/XMLSchema", "boolean", 0, 1, true), this.isSalesforceSilly__c, this.isSalesforceSilly__c__is_set);
+  }
+
   /**
    * element : LastName of type {http://www.w3.org/2001/XMLSchema}string
    * java type: java.lang.String

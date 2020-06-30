@@ -81,4 +81,16 @@ public class SFDCPartnerAPIClientTest {
     partnerSObject = CLIENT.toPartner(contact);
     Assert.assertNull(partnerSObject.getSObjectField("Email_Opt_Out__c"));
   }
+
+  @Test
+  public void testToEnterpriseWithFirstLetterLowercase() {
+    SObject partnerSObject = new SObject("Contact");
+    // query result fields are always strings, so test for conversion
+    partnerSObject.setSObjectField("isSalesforceSilly__c", "true");
+    Contact contact = CLIENT.toEnterprise(Contact.class, partnerSObject);
+    Assert.assertEquals(true, contact.getIsSalesforceSilly__c());
+
+    partnerSObject = CLIENT.toPartner(contact);
+    Assert.assertEquals(true, partnerSObject.getSObjectField("isSalesforceSilly__c"));
+  }
 }
