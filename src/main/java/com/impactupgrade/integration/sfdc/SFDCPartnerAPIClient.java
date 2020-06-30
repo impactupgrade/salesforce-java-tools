@@ -13,6 +13,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.beans.Introspector;
 import java.beans.PropertyDescriptor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -93,23 +94,48 @@ public class SFDCPartnerAPIClient {
             }
 
             // convert primitive wrappers + Calendar, as well as handle defaults if the value was null
+            Object defaultValueForNull = null;
             Class<?> argType = setter.getParameterTypes()[0];
             if (Boolean.class.equals(argType)) {
-              value = value != null ? Boolean.parseBoolean((String) value) : false;
+              if (value == null) {
+                defaultValueForNull = false;
+              } else {
+                value = Boolean.parseBoolean((String) value);
+              }
             } else if (value != null && Byte.class.equals(argType)) {
               value = Byte.valueOf((String) value);
             } else if (value != null && Character.class.equals(argType)) {
               value = ((String) value).charAt(0);
             } else if (Double.class.equals(argType)) {
-              value = value != null ? Double.parseDouble((String) value) : 0d;
+              if (value == null) {
+                defaultValueForNull = 0d;
+              } else {
+                value = Double.parseDouble((String) value);
+              }
             } else if (Float.class.equals(argType)) {
-              value = value != null ? Float.parseFloat((String) value) : 0f;
+              if (value == null) {
+                defaultValueForNull = 0f;
+              } else {
+                value = Float.parseFloat((String) value);
+              }
             } else if (Integer.class.equals(argType)) {
-              value = value != null ? Integer.parseInt((String) value) : 0;
+              if (value == null) {
+                defaultValueForNull = 0;
+              } else {
+                value = Integer.parseInt((String) value);
+              }
             } else if (Long.class.equals(argType)) {
-              value = value != null ? Long.parseLong((String) value) : 0L;
+              if (value == null) {
+                defaultValueForNull = 0L;
+              } else {
+                value = Long.parseLong((String) value);
+              }
             } else if (Short.class.equals(argType)) {
-              value = value != null ? Short.valueOf((String) value) : 0;
+              if (value == null) {
+                defaultValueForNull = 0;
+              } else {
+                value = Short.parseShort((String) value);
+              }
             } else if (value != null && Calendar.class.equals(argType)) {
               Calendar c = Calendar.getInstance();
               c.setTime(SDF.parse((String) value));
@@ -117,7 +143,18 @@ public class SFDCPartnerAPIClient {
             }
 
             try {
-              setter.invoke(object, value);
+              if (defaultValueForNull != null) {
+                // IMPORTANT: if the value was null and we have a default value (for Boolean and numerics),
+                // we need to switch to using the field itself, not the setter. Enterprise API objects set an isSet
+                // flag in the property setters, which is then used to determine what fields to include when the
+                // object is marshalled back into XML to be sent for an update. We want defaults to be read only, not
+                // later persisted!
+                Field field = object.getClass().getDeclaredField(name);
+                field.setAccessible(true);
+                field.set(object, defaultValueForNull);
+              } else if (value != null) {
+                setter.invoke(object, value);
+              }
             } catch (Exception e) {
               log.error("failed to set value {} on {}.{}", value, eClass.getSimpleName(), name);
               // re-throw so the next layer catches it
@@ -169,8 +206,16 @@ public class SFDCPartnerAPIClient {
           // special handling for certain cases
           if ("FieldsToNull".equalsIgnoreCase(name)) {
             sObject.setFieldsToNull((String[]) value);
+          } else if ("Id".equalsIgnoreCase(name)) {
+            sObject.setId((String) value);
           } else {
-            sObject.setSObjectField(name, value);
+            Field fieldIsSet = object.getClass().getDeclaredField(name + "__is_set");
+            fieldIsSet.setAccessible(true);
+            boolean isSet = (boolean) fieldIsSet.get(object);
+            if (isSet) {
+              // See note on defaultValueForNull. Only write the field if the setter was used, *not* default values.
+              sObject.setSObjectField(name, value);
+            }
           }
         }
       }

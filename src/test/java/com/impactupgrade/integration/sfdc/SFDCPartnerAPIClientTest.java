@@ -73,8 +73,12 @@ public class SFDCPartnerAPIClientTest {
 
   @Test
   public void testToEnterpriseDefaultValues() {
-    SObject sObject = new SObject("Contact");
-    Contact contact = CLIENT.toEnterprise(Contact.class, sObject);
+    SObject partnerSObject = new SObject("Contact");
+    Contact contact = CLIENT.toEnterprise(Contact.class, partnerSObject);
     Assert.assertEquals(false, contact.getEmail_Opt_Out__c());
+
+    // then convert it back to SObject and make sure the default isn't carried over
+    partnerSObject = CLIENT.toPartner(contact);
+    Assert.assertNull(partnerSObject.getSObjectField("Email_Opt_Out__c"));
   }
 }
