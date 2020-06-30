@@ -240,14 +240,17 @@ public class SFDCPartnerAPIClient {
   // SF to auto-generate them. :(
 
   public SaveResult insert(Object object) throws InterruptedException {
+    log.info("insert {}", object.getClass().getSimpleName());
     return _insert(0, toPartner(object));
   }
 
   public SaveResult[] update(Object... objects) throws InterruptedException {
+    Arrays.stream(objects).forEach(object -> log.info("update", object.getClass().getSimpleName()));
     return _update(0, toPartner(objects));
   }
 
   public DeleteResult[] delete(Object... objects) throws InterruptedException {
+    Arrays.stream(objects).forEach(object -> log.info("delete", object.getClass().getSimpleName()));
     return _delete(0, toPartner(objects));
   }
 
