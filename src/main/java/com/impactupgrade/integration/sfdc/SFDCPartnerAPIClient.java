@@ -86,40 +86,34 @@ public class SFDCPartnerAPIClient {
           } else {
             Object value = sObject.getSObjectField(name);
 
-            if (value == null) {
-              continue;
-            }
-
             // if nested object, recursively build it
             if (value instanceof SObject) {
               // get the nested object type from the setter arg
               value = toEnterprise(setter.getParameterTypes()[0], (SObject) value);
             }
 
-            // convert primitive wrappers + Calendar
-            if (value instanceof String) {
-              Class<?> argType = setter.getParameterTypes()[0];
-              if (Boolean.class.equals(argType)) {
-                value = Boolean.valueOf((String) value);
-              } else if (Byte.class.equals(argType)) {
-                value = Byte.valueOf((String) value);
-              } else if (Character.class.equals(argType)) {
-                value = ((String) value).charAt(0);
-              } else if (Double.class.equals(argType)) {
-                value = Double.valueOf((String) value);
-              } else if (Float.class.equals(argType)) {
-                value = Float.valueOf((String) value);
-              } else if (Integer.class.equals(argType)) {
-                value = Integer.valueOf((String) value);
-              } else if (Long.class.equals(argType)) {
-                value = Long.valueOf((String) value);
-              } else if (Short.class.equals(argType)) {
-                value = Short.valueOf((String) value);
-              } else if (Calendar.class.equals(argType)) {
-                Calendar c = Calendar.getInstance();
-                c.setTime(SDF.parse((String) value));
-                value = c;
-              }
+            // convert primitive wrappers + Calendar, as well as handle defaults if the value was null
+            Class<?> argType = setter.getParameterTypes()[0];
+            if (Boolean.class.equals(argType)) {
+              value = value != null ? Boolean.parseBoolean((String) value) : false;
+            } else if (value != null && Byte.class.equals(argType)) {
+              value = Byte.valueOf((String) value);
+            } else if (value != null && Character.class.equals(argType)) {
+              value = ((String) value).charAt(0);
+            } else if (Double.class.equals(argType)) {
+              value = value != null ? Double.parseDouble((String) value) : 0d;
+            } else if (Float.class.equals(argType)) {
+              value = value != null ? Float.parseFloat((String) value) : 0f;
+            } else if (Integer.class.equals(argType)) {
+              value = value != null ? Integer.parseInt((String) value) : 0;
+            } else if (Long.class.equals(argType)) {
+              value = value != null ? Long.parseLong((String) value) : 0L;
+            } else if (Short.class.equals(argType)) {
+              value = value != null ? Short.valueOf((String) value) : 0;
+            } else if (value != null && Calendar.class.equals(argType)) {
+              Calendar c = Calendar.getInstance();
+              c.setTime(SDF.parse((String) value));
+              value = c;
             }
 
             try {

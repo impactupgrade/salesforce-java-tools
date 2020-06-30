@@ -70,4 +70,11 @@ public class SFDCPartnerAPIClientTest {
     Assert.assertEquals("a123", contact.getAccount().getId());
     Assert.assertEquals("Meyer Household", contact.getAccount().getName());
   }
+
+  @Test
+  public void testToEnterpriseDefaultValues() {
+    SObject sObject = new SObject("Contact");
+    Contact contact = CLIENT.toEnterprise(Contact.class, sObject);
+    Assert.assertEquals(false, contact.getEmail_Opt_Out__c());
+  }
 }
