@@ -342,7 +342,7 @@ public class SFDCPartnerAPIClient {
     // allows 10 "chunks". So if we change that list to Account, Account, ..., Contact, Contact, ... it only counts as
     // 2 chunks since the type only changes once in the sequence.
     return batchActions.stream()
-        .sorted(Comparator.comparing(sObject -> sObject.getClass().getSimpleName())).toArray(SObject[]::new);
+        .sorted(Comparator.comparing(SObject::getType)).toArray(SObject[]::new);
   }
 
   /**
