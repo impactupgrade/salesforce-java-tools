@@ -83,6 +83,8 @@ public class SFDCPartnerAPIClient {
       .build(new CacheLoader<>() {
         @Override
         public PartnerConnection load(AuthContext authContext) {
+          log.info("loading new SFDC connection for {}", authContext.username);
+
           ConnectorConfig connectorConfig = new ConnectorConfig();
           connectorConfig.setUsername(authContext.username);
           connectorConfig.setPassword(authContext.password);
