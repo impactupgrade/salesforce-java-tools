@@ -1,5 +1,9 @@
 package com.impactupgrade.integration.sfdc;
 
+import com.google.common.base.Strings;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.sforce.soap.partner.Connector;
 import com.sforce.soap.partner.DeleteResult;
 import com.sforce.soap.partner.LoginResult;
@@ -21,8 +25,12 @@ import java.util.Calendar;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -33,14 +41,76 @@ public class SFDCPartnerAPIClient {
   // most Calendar fields are simple dates, no time
   private static final DateFormat SDF = new SimpleDateFormat("yyyy-MM-dd");
 
-  private final String username;
-  private final String password;
-  private final String url;
+  private static final class AuthContext {
+    private String username;
+    private String password;
+    private String url;
+
+    // Implement equals/hashcode so the Guava cache can use this as a key!
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+      AuthContext that = (AuthContext) o;
+      return username.equals(that.username) &&
+          password.equals(that.password) &&
+          url.equals(that.url);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(username, password, url);
+    }
+  }
+
+  private final AuthContext authContext;
+  private final Supplier<PartnerConnection> partnerConnection;
+
+  // The number of min we can cache and continue to use an open session to the SFDC API. In SFDC Setup, the
+  // Session Settings allow you to configure a timeout value as low as 15 min (we default to that, just in case).
+  // But that's configurable up to 24 hours. Pass in a sessionTtlMin value that matches your settings
+  // to minimize the number of login calls!
+  private static final String _sessionTtlMin = System.getenv("SFDC_SESSION_TIMEOUT_MIN");
+  private static final int sessionTtlMin = Strings.isNullOrEmpty(_sessionTtlMin) ? 15 : Integer.parseInt(_sessionTtlMin);
+
+  // The creation of PartnerConnection is expensive, as it provisions itself and calls SF to log in. Instead of
+  // attempting to optimize using ThreadLocal (memory leaks + not super helpful for large, concurrent use cases like
+  // getting slammed by a particular webhook), we opt to use a simple Guava cache with a TTL defined by
+  // sessionTtlMin. Key it off the AuthContext. Lazily initialize it so the first caller can configure the TTL.
+  private static final LoadingCache<AuthContext, PartnerConnection> partnerConnectionCache = CacheBuilder.newBuilder()
+      .expireAfterAccess(sessionTtlMin, TimeUnit.MINUTES)
+      .build(new CacheLoader<>() {
+        @Override
+        public PartnerConnection load(AuthContext authContext) {
+          ConnectorConfig connectorConfig = new ConnectorConfig();
+          connectorConfig.setUsername(authContext.username);
+          connectorConfig.setPassword(authContext.password);
+          connectorConfig.setAuthEndpoint(authContext.url);
+
+//          connectorConfig.setTraceMessage(true);
+//          connectorConfig.setPrettyPrintXml(true);
+          try {
+            return Connector.newConnection(connectorConfig);
+          } catch (ConnectionException e) {
+            throw new RuntimeException(e);
+          }
+        }
+      });
 
   public SFDCPartnerAPIClient(String username, String password, String url) {
-    this.username = username;
-    this.password = password;
-    this.url = url;
+    authContext = new AuthContext();
+    authContext.username = username;
+    authContext.password = password;
+    authContext.url = url;
+
+    partnerConnection = () -> {
+      try {
+        return partnerConnectionCache.get(authContext);
+      } catch (ExecutionException e) {
+        throw new RuntimeException(e);
+      }
+    };
   }
 
   /**
@@ -50,7 +120,7 @@ public class SFDCPartnerAPIClient {
    */
   public LoginResult login() throws ConnectionException {
     // Callers of this method are always manual tasks from the UI, so it's ok to not retry the connection.
-    LoginResult loginResult = partnerConnection.get().login(username, password);
+    LoginResult loginResult = partnerConnection.get().login(authContext.username, authContext.password);
     log.info("partner endpoint: " + loginResult.getServerUrl());
     log.info("metadata endpoint: " + loginResult.getMetadataServerUrl());
     return loginResult;
@@ -244,25 +314,6 @@ public class SFDCPartnerAPIClient {
   // SFDC also randomly likes to time out and throw ConnectionExceptions, so gracefully handle that too.
   // These methods support retries on 10 sec intervals, up to a minute.
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  // scoped to the current thread since SFDC sessions stale after n hours
-  protected final ThreadLocal<PartnerConnection> partnerConnection = new ThreadLocal<>() {
-    @Override
-    protected PartnerConnection initialValue() {
-      ConnectorConfig connectorConfig = new ConnectorConfig();
-      connectorConfig.setUsername(username);
-      connectorConfig.setPassword(password);
-      connectorConfig.setAuthEndpoint(url);
-
-//      connectorConfig.setTraceMessage(true);
-//      connectorConfig.setPrettyPrintXml(true);
-      try {
-        return Connector.newConnection(connectorConfig);
-      } catch (ConnectionException e) {
-        throw new RuntimeException(e);
-      }
-    }
-  };
 
   protected List<SObject> queryList(String queryString) throws ConnectionException, InterruptedException {
     return Stream.of(_query(0, queryString, null))
