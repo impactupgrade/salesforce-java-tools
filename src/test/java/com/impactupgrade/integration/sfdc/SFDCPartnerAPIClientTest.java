@@ -9,7 +9,7 @@ import java.util.Calendar;
 
 public class SFDCPartnerAPIClientTest {
 
-  private static final SFDCPartnerAPIClient CLIENT = new SFDCPartnerAPIClient("", "", ""){};
+  private static final SFDCPartnerAPIClient CLIENT = new SFDCPartnerAPIClient("", "", "", 200){};
 
   @Test
   public void testToPartner() {

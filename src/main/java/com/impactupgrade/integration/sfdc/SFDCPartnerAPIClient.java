@@ -66,6 +66,9 @@ public class SFDCPartnerAPIClient {
 
   private final AuthContext authContext;
   private final Supplier<PartnerConnection> partnerConnection;
+  private final int defaultBatchSize;
+  // 200 is the max allowed by the API
+  private static final int MAX_BATCH_SIZE = 200;
 
   // The number of min we can cache and continue to use an open session to the SFDC API. In SFDC Setup, the
   // Session Settings allow you to configure a timeout value as low as 15 min (we default to that, just in case).
@@ -100,7 +103,7 @@ public class SFDCPartnerAPIClient {
         }
       });
 
-  public SFDCPartnerAPIClient(String username, String password, String url) {
+  public SFDCPartnerAPIClient(String username, String password, String url, int defaultBatchSize) {
     authContext = new AuthContext();
     authContext.username = username;
     authContext.password = password;
@@ -113,6 +116,8 @@ public class SFDCPartnerAPIClient {
         throw new RuntimeException(e);
       }
     };
+
+    this.defaultBatchSize = defaultBatchSize;
   }
 
   /**
@@ -358,16 +363,15 @@ public class SFDCPartnerAPIClient {
     return _delete(0, toPartner(objects));
   }
 
-  // 200 is the max allowed by the API
-  private static final int MAX_BATCH_SIZE = 200;
-
   private final ThreadLocal<List<SObject>> batchUpdates = ThreadLocal.withInitial(ArrayList::new);
   private final ThreadLocal<List<SObject>> batchDeletes = ThreadLocal.withInitial(ArrayList::new);
 
   public void batchUpdate(Object... objects) throws InterruptedException {
-    batchUpdate(MAX_BATCH_SIZE, toPartner(objects));
+    batchUpdate(defaultBatchSize, toPartner(objects));
   }
   public void batchUpdate(int batchSize, Object... objects) throws InterruptedException {
+    batchSize = Math.min(batchSize, MAX_BATCH_SIZE);
+
     batchUpdates.get().addAll(Arrays.asList(toPartner(objects)));
 
     if (batchUpdates.get().size() >= batchSize) {
@@ -377,9 +381,11 @@ public class SFDCPartnerAPIClient {
   }
 
   public void batchDelete(Object... objects) throws InterruptedException {
-    batchDelete(MAX_BATCH_SIZE, toPartner(objects));
+    batchDelete(defaultBatchSize, toPartner(objects));
   }
   public void batchDelete(int batchSize, Object... objects) throws InterruptedException {
+    batchSize = Math.min(batchSize, MAX_BATCH_SIZE);
+
     batchDeletes.get().addAll(Arrays.asList(toPartner(objects)));
 
     if (batchDeletes.get().size() >= batchSize) {
@@ -401,7 +407,8 @@ public class SFDCPartnerAPIClient {
   /**
    * Flush out and act upon any remaining batch operations. This is important to call after your looping logic is
    * finished, since the batch queue will almost always contain additional operations that haven't executed yet
-   * (depending on your batchSize).
+   * (depending on your batchSize). Also important to call in a try/final to ensure memory is cleaned up during an
+   * error condition!
    *
    * @throws InterruptedException
    */
