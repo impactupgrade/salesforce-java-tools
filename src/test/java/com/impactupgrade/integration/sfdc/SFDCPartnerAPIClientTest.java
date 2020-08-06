@@ -1,5 +1,6 @@
 package com.impactupgrade.integration.sfdc;
 
+import com.sforce.soap.enterprise.sobject.Account;
 import com.sforce.soap.enterprise.sobject.Contact;
 import com.sforce.soap.partner.sobject.SObject;
 import org.junit.Assert;
@@ -22,15 +23,23 @@ public class SFDCPartnerAPIClientTest {
     contact.setLastName("Meyer");
     contact.setFieldsToNull(new String[]{"Phone", "Email"});
 
+    Account account = new Account();
+    account.setId("a123");
+    account.setName("Meyer Household");
+    contact.setAccount(account);
+
     SObject partnerSObject = CLIENT.toPartner(contact);
 
     Assert.assertEquals("c123", partnerSObject.getId());
-    Assert.assertEquals("a123", partnerSObject.getSObjectField("AccountId"));
     Assert.assertEquals(35.0, partnerSObject.getSObjectField("Age__c"));
     Assert.assertEquals(true, partnerSObject.getSObjectField("Email_Opt_Out__c"));
     Assert.assertEquals("Brett", partnerSObject.getSObjectField("FirstName"));
     Assert.assertEquals("Meyer", partnerSObject.getSObjectField("LastName"));
     Assert.assertArrayEquals(new String[]{"Phone", "Email"}, partnerSObject.getFieldsToNull());
+    Assert.assertEquals("a123", partnerSObject.getSObjectField("AccountId"));
+    Assert.assertNotNull(partnerSObject.getSObjectField("Account"));
+    Assert.assertEquals("a123", ((SObject) partnerSObject.getSObjectField("Account")).getSObjectField("Id"));
+    Assert.assertEquals("Meyer Household", ((SObject) partnerSObject.getSObjectField("Account")).getSObjectField("Name"));
   }
 
   @Test

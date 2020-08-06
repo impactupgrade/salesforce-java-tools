@@ -296,9 +296,14 @@ public class SFDCPartnerAPIClient {
           Field fieldIsSet = object.getClass().getDeclaredField(name + "__is_set");
           fieldIsSet.setAccessible(true);
           boolean isSet = (boolean) fieldIsSet.get(object);
+          // See note on defaultValueForNull. Only write the field if the setter was used, *not* default values.
           if (isSet) {
-            // See note on defaultValueForNull. Only write the field if the setter was used, *not* default values.
-            sObject.setSObjectField(name, value);
+            if (value.getClass().getName().contains("com.sforce.soap.enterprise.sobject")) {
+              // nested enterprise object -- convert it
+              sObject.setSObjectField(name, toPartner(value));
+            } else {
+              sObject.setSObjectField(name, value);
+            }
           }
         }
       }
