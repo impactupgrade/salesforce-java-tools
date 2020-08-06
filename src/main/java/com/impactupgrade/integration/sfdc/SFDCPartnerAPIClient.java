@@ -38,9 +38,6 @@ public class SFDCPartnerAPIClient {
 
   private static final Logger log = LogManager.getLogger(SFDCPartnerAPIClient.class.getName());
 
-  // most Calendar fields are simple dates, no time
-  private static final DateFormat SDF = new SimpleDateFormat("yyyy-MM-dd");
-
   private static final class AuthContext {
     private String username;
     private String password;
@@ -171,7 +168,7 @@ public class SFDCPartnerAPIClient {
           } else if (value != null && Calendar.class.equals(field.getType())) {
             // map String to Calendar, date only (no time)
             Calendar c = Calendar.getInstance();
-            c.setTime(SDF.parse((String) value));
+            c.setTime(new SimpleDateFormat("yyyy-MM-dd").parse((String) value));
             value = c;
           }
 
