@@ -134,15 +134,15 @@ public class SFDCPartnerAPIClient {
   // Map between SFDC Enterprise API (strongly typed model for a custom schema) and SFDC Partner API (generic SObject)
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  protected <T> List<T> toEnterprise(Class<T> eClass, List<SObject> sObjects) {
+  public <T> List<T> toEnterprise(Class<T> eClass, List<SObject> sObjects) {
     return sObjects.stream().map(o -> toEnterprise(eClass, o)).collect(Collectors.toList());
   }
 
-  protected <T> Optional<T> toEnterprise(Class<T> eClass, Optional<SObject> sObject) {
+  public <T> Optional<T> toEnterprise(Class<T> eClass, Optional<SObject> sObject) {
     return sObject.map(o -> toEnterprise(eClass, o));
   }
 
-  protected <T> T toEnterprise(Class<T> eClass, SObject sObject) {
+  public <T> T toEnterprise(Class<T> eClass, SObject sObject) {
     try {
       T object = eClass.getDeclaredConstructor().newInstance();
 
@@ -248,19 +248,19 @@ public class SFDCPartnerAPIClient {
     }
   }
 
-  protected List<SObject> toPartner(List<Object> objects) {
+  public List<SObject> toPartner(List<Object> objects) {
     return objects.stream().map(this::toPartner).collect(Collectors.toList());
   }
 
-  protected SObject[] toPartner(Object... objects) {
+  public SObject[] toPartner(Object... objects) {
     return Arrays.stream(objects).map(this::toPartner).toArray(SObject[]::new);
   }
 
-  protected Optional<SObject> toPartner(Optional<Object> object) {
+  public Optional<SObject> toPartner(Optional<Object> object) {
     return object.map(this::toPartner);
   }
 
-  protected SObject toPartner(Object object) {
+  public SObject toPartner(Object object) {
     if (object instanceof SObject) {
       return (SObject) object;
     }
@@ -324,23 +324,23 @@ public class SFDCPartnerAPIClient {
   // These methods support retries on 10 sec intervals, up to a minute.
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  protected List<SObject> queryList(String queryString) throws ConnectionException, InterruptedException {
+  public List<SObject> queryList(String queryString) throws ConnectionException, InterruptedException {
     return Stream.of(_query(0, queryString, null))
         .collect(Collectors.toList());
   }
 
-  protected <T> List<T> queryList(Class<T> eClass, String queryString) throws ConnectionException, InterruptedException {
+  public <T> List<T> queryList(Class<T> eClass, String queryString) throws ConnectionException, InterruptedException {
     return Stream.of(_query(0, queryString, null))
         .map(sObject -> toEnterprise(eClass, sObject))
         .collect(Collectors.toList());
   }
 
-  protected Optional<SObject> querySingle(String queryString) throws ConnectionException, InterruptedException {
+  public Optional<SObject> querySingle(String queryString) throws ConnectionException, InterruptedException {
     return Stream.of(_query(0, queryString, null))
         .findFirst();
   }
 
-  protected <T> Optional<T> querySingle(Class<T> eClass, String queryString) throws ConnectionException, InterruptedException {
+  public <T> Optional<T> querySingle(Class<T> eClass, String queryString) throws ConnectionException, InterruptedException {
     return Stream.of(_query(0, queryString, null))
         .map(sObject -> toEnterprise(eClass, sObject))
         .findFirst();
