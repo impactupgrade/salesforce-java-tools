@@ -9,6 +9,7 @@ import com.sforce.soap.partner.DeleteResult;
 import com.sforce.soap.partner.LoginResult;
 import com.sforce.soap.partner.PartnerConnection;
 import com.sforce.soap.partner.SaveResult;
+import com.sforce.soap.partner.fault.ApiQueryFault;
 import com.sforce.soap.partner.sobject.SObject;
 import com.sforce.ws.ConnectionException;
 import com.sforce.ws.ConnectorConfig;
@@ -17,7 +18,6 @@ import org.apache.logging.log4j.Logger;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -434,6 +434,10 @@ public class SFDCPartnerAPIClient {
 
     try {
       return partnerConnection.get().query(queryString).getRecords();
+    } catch (ApiQueryFault e) {
+      // TODO: Should this instead be catching ApiFault?
+      log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
+      throw e;
     } catch (ConnectionException e) {
       log.warn("query attempt {} failed due to connection issues; retrying in 10s", count, e);
       Thread.sleep(10000);
@@ -467,6 +471,13 @@ public class SFDCPartnerAPIClient {
         return _insert(count + 1, sObject);
       }
 
+      return saveResult;
+    } catch (ApiQueryFault e) {
+      // TODO: Should this instead be catching ApiFault?
+      log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
+
+      SaveResult saveResult = new SaveResult();
+      saveResult.setSuccess(false);
       return saveResult;
     } catch (ConnectionException e) {
       log.warn("insert attempt {} failed due to connection issues; retrying {} in 10s", count, clazz, e);
@@ -510,6 +521,13 @@ public class SFDCPartnerAPIClient {
       }
 
       return saveResults;
+    } catch (ApiQueryFault e) {
+      // TODO: Should this instead be catching ApiFault?
+      log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
+
+      SaveResult saveResult = new SaveResult();
+      saveResult.setSuccess(false);
+      return new SaveResult[]{saveResult};
     } catch (ConnectionException e) {
       log.warn("update attempt {} failed due to connection issues; retrying {} {} in 10s", count, clazz, ids, e);
       Thread.sleep(10000);
@@ -552,6 +570,13 @@ public class SFDCPartnerAPIClient {
       }
 
       return deleteResults;
+    } catch (ApiQueryFault e) {
+      // TODO: Should this instead be catching ApiFault?
+      log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
+
+      DeleteResult deleteResult = new DeleteResult();
+      deleteResult.setSuccess(false);
+      return new DeleteResult[]{deleteResult};
     } catch (ConnectionException e) {
       log.warn("delete attempt {} failed due to connection issues; retrying {} {} in 10s", count, clazz, ids, e);
       Thread.sleep(10000);
