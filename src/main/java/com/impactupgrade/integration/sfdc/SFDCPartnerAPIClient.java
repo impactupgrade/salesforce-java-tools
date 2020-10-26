@@ -9,7 +9,7 @@ import com.sforce.soap.partner.DeleteResult;
 import com.sforce.soap.partner.LoginResult;
 import com.sforce.soap.partner.PartnerConnection;
 import com.sforce.soap.partner.SaveResult;
-import com.sforce.soap.partner.fault.ApiQueryFault;
+import com.sforce.soap.partner.fault.ApiFault;
 import com.sforce.soap.partner.sobject.SObject;
 import com.sforce.ws.ConnectionException;
 import com.sforce.ws.ConnectorConfig;
@@ -434,8 +434,7 @@ public class SFDCPartnerAPIClient {
 
     try {
       return partnerConnection.get().query(queryString).getRecords();
-    } catch (ApiQueryFault e) {
-      // TODO: Should this instead be catching ApiFault?
+    } catch (ApiFault e) {
       log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
       throw e;
     } catch (ConnectionException e) {
@@ -472,8 +471,7 @@ public class SFDCPartnerAPIClient {
       }
 
       return saveResult;
-    } catch (ApiQueryFault e) {
-      // TODO: Should this instead be catching ApiFault?
+    } catch (ApiFault e) {
       log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
 
       SaveResult saveResult = new SaveResult();
@@ -521,8 +519,7 @@ public class SFDCPartnerAPIClient {
       }
 
       return saveResults;
-    } catch (ApiQueryFault e) {
-      // TODO: Should this instead be catching ApiFault?
+    } catch (ApiFault e) {
       log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
 
       SaveResult saveResult = new SaveResult();
@@ -570,8 +567,7 @@ public class SFDCPartnerAPIClient {
       }
 
       return deleteResults;
-    } catch (ApiQueryFault e) {
-      // TODO: Should this instead be catching ApiFault?
+    } catch (ApiFault e) {
       log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
 
       DeleteResult deleteResult = new DeleteResult();
