@@ -56,4 +56,4 @@ TODO
 
 ## License
 
-Licensed under the Apache License 2.0. See LICENSE for more information.
+Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE V3 (GNU AGPLv3). See agpl-3.0.txt for more information.
