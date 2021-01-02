@@ -8,6 +8,7 @@ import com.sforce.soap.partner.Connector;
 import com.sforce.soap.partner.DeleteResult;
 import com.sforce.soap.partner.LoginResult;
 import com.sforce.soap.partner.PartnerConnection;
+import com.sforce.soap.partner.QueryResult;
 import com.sforce.soap.partner.SaveResult;
 import com.sforce.soap.partner.fault.ApiFault;
 import com.sforce.soap.partner.sobject.SObject;
@@ -325,25 +326,33 @@ public class SFDCPartnerAPIClient {
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   public List<SObject> queryList(String queryString) throws ConnectionException, InterruptedException {
-    return Stream.of(_query(0, queryString, null))
+    return Stream.of(_query(0, queryString, null).getRecords())
         .collect(Collectors.toList());
   }
 
   public <T> List<T> queryList(Class<T> eClass, String queryString) throws ConnectionException, InterruptedException {
-    return Stream.of(_query(0, queryString, null))
+    return Stream.of(_query(0, queryString, null).getRecords())
         .map(sObject -> toEnterprise(eClass, sObject))
         .collect(Collectors.toList());
   }
 
   public Optional<SObject> querySingle(String queryString) throws ConnectionException, InterruptedException {
-    return Stream.of(_query(0, queryString, null))
+    return Stream.of(_query(0, queryString, null).getRecords())
         .findFirst();
   }
 
   public <T> Optional<T> querySingle(Class<T> eClass, String queryString) throws ConnectionException, InterruptedException {
-    return Stream.of(_query(0, queryString, null))
+    return Stream.of(_query(0, queryString, null).getRecords())
         .map(sObject -> toEnterprise(eClass, sObject))
         .findFirst();
+  }
+
+  public long queryCount(String queryString) throws ConnectionException, InterruptedException {
+    return _query(0, queryString, null).getSize();
+  }
+
+  public QueryResult query(String queryString) throws ConnectionException, InterruptedException {
+    return _query(0, queryString, null);
   }
 
   // Note on inserts: we're only allowing one at a time and disallowing batching. The API does not allow multiple
@@ -356,12 +365,12 @@ public class SFDCPartnerAPIClient {
   }
 
   public SaveResult[] update(Object... objects) throws InterruptedException {
-    Arrays.stream(objects).forEach(object -> log.info("update", object.getClass().getSimpleName()));
+    Arrays.stream(objects).forEach(object -> log.info("update {}", object.getClass().getSimpleName()));
     return _update(0, toPartner(objects));
   }
 
   public DeleteResult[] delete(Object... objects) throws InterruptedException {
-    Arrays.stream(objects).forEach(object -> log.info("delete", object.getClass().getSimpleName()));
+    Arrays.stream(objects).forEach(object -> log.info("delete {}", object.getClass().getSimpleName()));
     return _delete(0, toPartner(objects));
   }
 
@@ -425,7 +434,7 @@ public class SFDCPartnerAPIClient {
     }
   }
 
-  private SObject[] _query(int count, String queryString, ConnectionException previousException) throws ConnectionException, InterruptedException {
+  private QueryResult _query(int count, String queryString, ConnectionException previousException) throws ConnectionException, InterruptedException {
     if (count == 6) {
       log.error("unable to complete query by attempt {}", count);
       // rethrow the last exception, since the whole flow simply needs to halt at this point
@@ -433,7 +442,7 @@ public class SFDCPartnerAPIClient {
     }
 
     try {
-      return partnerConnection.get().query(queryString).getRecords();
+      return partnerConnection.get().query(queryString);
     } catch (ApiFault e) {
       log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
       throw e;
