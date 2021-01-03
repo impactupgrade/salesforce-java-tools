@@ -326,33 +326,33 @@ public class SFDCPartnerAPIClient {
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   public List<SObject> queryList(String queryString) throws ConnectionException, InterruptedException {
-    return Stream.of(_query(0, queryString, null).getRecords())
+    return Stream.of(_query(0, queryString).getRecords())
         .collect(Collectors.toList());
   }
 
   public <T> List<T> queryList(Class<T> eClass, String queryString) throws ConnectionException, InterruptedException {
-    return Stream.of(_query(0, queryString, null).getRecords())
+    return Stream.of(_query(0, queryString).getRecords())
         .map(sObject -> toEnterprise(eClass, sObject))
         .collect(Collectors.toList());
   }
 
   public Optional<SObject> querySingle(String queryString) throws ConnectionException, InterruptedException {
-    return Stream.of(_query(0, queryString, null).getRecords())
+    return Stream.of(_query(0, queryString).getRecords())
         .findFirst();
   }
 
   public <T> Optional<T> querySingle(Class<T> eClass, String queryString) throws ConnectionException, InterruptedException {
-    return Stream.of(_query(0, queryString, null).getRecords())
+    return Stream.of(_query(0, queryString).getRecords())
         .map(sObject -> toEnterprise(eClass, sObject))
         .findFirst();
   }
 
   public long queryCount(String queryString) throws ConnectionException, InterruptedException {
-    return _query(0, queryString, null).getSize();
+    return _query(0, queryString).getSize();
   }
 
   public QueryResult query(String queryString) throws ConnectionException, InterruptedException {
-    return _query(0, queryString, null);
+    return _query(0, queryString);
   }
 
   // Note on inserts: we're only allowing one at a time and disallowing batching. The API does not allow multiple
@@ -434,13 +434,7 @@ public class SFDCPartnerAPIClient {
     }
   }
 
-  private QueryResult _query(int count, String queryString, ConnectionException previousException) throws ConnectionException, InterruptedException {
-    if (count == 6) {
-      log.error("unable to complete query by attempt {}", count);
-      // rethrow the last exception, since the whole flow simply needs to halt at this point
-      throw previousException;
-    }
-
+  private QueryResult _query(int count, String queryString) throws ConnectionException, InterruptedException {
     try {
       return partnerConnection.get().query(queryString);
     } catch (ApiFault e) {
@@ -449,7 +443,14 @@ public class SFDCPartnerAPIClient {
     } catch (ConnectionException e) {
       log.warn("query attempt {} failed due to connection issues; retrying in 10s", count, e);
       Thread.sleep(10000);
-      return _query(count + 1, queryString, e);
+
+      if (count == 5) {
+        log.error("unable to complete query by attempt {}", count);
+        // rethrow exception, since the whole flow simply needs to halt at this point
+        throw e;
+      }
+
+      return _query(count + 1, queryString);
     }
   }
 
