@@ -499,7 +499,7 @@ public class SFDCPartnerAPIClient {
   }
 
   private SaveResult _insert(int count, SObject sObject) throws InterruptedException {
-    String clazz = sObject.getClass().getSimpleName();
+    String clazz = sObject.getType();
 
     if (count == 6) {
       log.error("unable to complete insert {} by attempt {}", clazz, count);
@@ -539,7 +539,7 @@ public class SFDCPartnerAPIClient {
   }
 
   private SaveResult[] _update(int count, SObject... sObjects) throws InterruptedException {
-    String clazz = sObjects[0].getClass().getSimpleName();
+    String clazz = sObjects[0].getType();
     Map<String, SObject> byId = Arrays.stream(sObjects).collect(Collectors.toMap(SObject::getId, Function.identity()));
     String ids = byId.values().stream().map(SObject::getId).collect(Collectors.joining(","));
 
@@ -587,7 +587,7 @@ public class SFDCPartnerAPIClient {
   }
 
   private DeleteResult[] _delete(int count, SObject... sObjects) throws InterruptedException {
-    String clazz = sObjects[0].getClass().getSimpleName();
+    String clazz = sObjects[0].getType();
     Map<String, SObject> byId = Arrays.stream(sObjects).collect(Collectors.toMap(SObject::getId, Function.identity()));
     String ids = byId.values().stream().map(SObject::getId).collect(Collectors.joining(","));
 
@@ -598,7 +598,7 @@ public class SFDCPartnerAPIClient {
       return new DeleteResult[]{deleteResult};
     }
 
-    log.info("deleteing {} {}", clazz, ids);
+    log.info("deleting {} {}", clazz, ids);
 
     try {
       DeleteResult[] deleteResults = partnerConnection.get().delete(byId.keySet().toArray(new String[0]));
