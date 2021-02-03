@@ -336,6 +336,30 @@ public class SFDCPartnerAPIClient {
         .collect(Collectors.toList());
   }
 
+  public List<SObject> queryListAutoPaged(String queryString)
+      throws ConnectionException, InterruptedException {
+    return _queryListAutoPaged(queryString, null);
+  }
+
+  private List<SObject> _queryListAutoPaged(String queryString, String previousQueryLocator)
+      throws ConnectionException, InterruptedException {
+    QueryResult queryResult;
+    if (previousQueryLocator == null) {
+      queryResult = _query(0, queryString);
+    } else {
+      queryResult = _queryMore(0, previousQueryLocator);
+    }
+
+    // Silly, but needs to be mutable...
+    List<SObject> records = new ArrayList<>(Arrays.asList(queryResult.getRecords()));
+
+    if (records.size() == 2000) {
+      records.addAll(_queryListAutoPaged(queryString, queryResult.getQueryLocator()));
+    }
+
+    return records;
+  }
+
   public Optional<SObject> querySingle(String queryString) throws ConnectionException, InterruptedException {
     return Stream.of(_query(0, queryString).getRecords())
         .findFirst();
@@ -451,6 +475,26 @@ public class SFDCPartnerAPIClient {
       }
 
       return _query(count + 1, queryString);
+    }
+  }
+
+  private QueryResult _queryMore(int count, String previousQueryLocator) throws ConnectionException, InterruptedException {
+    try {
+      return partnerConnection.get().queryMore(previousQueryLocator);
+    } catch (ApiFault e) {
+      log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
+      throw e;
+    } catch (ConnectionException e) {
+      log.warn("query attempt {} failed due to connection issues; retrying in 10s", count, e);
+      Thread.sleep(10000);
+
+      if (count == 5) {
+        log.error("unable to complete query by attempt {}", count);
+        // rethrow exception, since the whole flow simply needs to halt at this point
+        throw e;
+      }
+
+      return _queryMore(count + 1, previousQueryLocator);
     }
   }
 
