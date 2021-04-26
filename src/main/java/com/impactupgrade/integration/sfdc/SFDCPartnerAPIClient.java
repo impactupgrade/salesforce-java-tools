@@ -384,7 +384,6 @@ public class SFDCPartnerAPIClient {
   // SF to auto-generate them. :(
 
   public SaveResult insert(Object object) throws InterruptedException {
-    log.info("insert {}", object.getClass().getSimpleName());
     return _insert(0, toPartner(object));
   }
 
