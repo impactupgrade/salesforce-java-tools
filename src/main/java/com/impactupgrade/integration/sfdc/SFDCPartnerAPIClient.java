@@ -17,6 +17,7 @@ import com.sforce.ws.ConnectorConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
@@ -138,7 +139,13 @@ public class SFDCPartnerAPIClient {
   public <T> List<T> toEnterprise(Class<T> eClass, List<SObject> sObjects) {
     return sObjects.stream().map(o -> toEnterprise(eClass, o)).collect(Collectors.toList());
   }
-
+  public <T> T[] toEnterprise(Class<T> eClass, SObject[] sObjects) {
+    T[] results = (T[]) Array.newInstance(eClass, sObjects.length);
+    for (int i = 0; i < sObjects.length; i++) {
+      results[i] = toEnterprise(eClass, sObjects[i]);
+    }
+    return results;
+  }
   public <T> Optional<T> toEnterprise(Class<T> eClass, Optional<SObject> sObject) {
     return sObject.map(o -> toEnterprise(eClass, o));
   }
@@ -252,11 +259,9 @@ public class SFDCPartnerAPIClient {
   public List<SObject> toPartner(List<Object> objects) {
     return objects.stream().map(this::toPartner).collect(Collectors.toList());
   }
-
-  public SObject[] toPartner(Object... objects) {
+  public SObject[] toPartner(Object[] objects) {
     return Arrays.stream(objects).map(this::toPartner).toArray(SObject[]::new);
   }
-
   public Optional<SObject> toPartner(Optional<Object> object) {
     return object.map(this::toPartner);
   }
@@ -350,7 +355,7 @@ public class SFDCPartnerAPIClient {
       queryResult = _queryMore(0, previousQueryLocator);
     }
 
-    // Silly, but needs to be mutable...
+    // Silly, but needs to be mutable.
     List<SObject> records = new ArrayList<>(Arrays.asList(queryResult.getRecords()));
 
     if (records.size() == 2000) {
@@ -387,26 +392,56 @@ public class SFDCPartnerAPIClient {
     return _insert(0, toPartner(object));
   }
 
-  public SaveResult[] update(Object... objects) throws InterruptedException {
-    Arrays.stream(objects).forEach(object -> log.info("update {}", object.getClass().getSimpleName()));
+  public SaveResult[] update(List<Object> objects) throws InterruptedException {
+    return _update(0, toPartner(objects).toArray(new SObject[0]));
+  }
+  public SaveResult[] update(Object[] objects) throws InterruptedException {
     return _update(0, toPartner(objects));
   }
+  public SaveResult update(Object object) throws InterruptedException {
+    return _update(0, new SObject[]{toPartner(object)})[0];
+  }
 
-  public DeleteResult[] delete(Object... objects) throws InterruptedException {
-    Arrays.stream(objects).forEach(object -> log.info("delete {}", object.getClass().getSimpleName()));
+  public DeleteResult[] delete(List<Object> objects) throws InterruptedException {
+    return _delete(0, toPartner(objects).toArray(new SObject[0]));
+  }
+  public DeleteResult[] delete(Object[] objects) throws InterruptedException {
     return _delete(0, toPartner(objects));
+  }
+  public DeleteResult delete(Object object) throws InterruptedException {
+    return _delete(0, new SObject[]{toPartner(object)})[0];
   }
 
   private final ThreadLocal<List<SObject>> batchUpdates = ThreadLocal.withInitial(ArrayList::new);
   private final ThreadLocal<List<SObject>> batchDeletes = ThreadLocal.withInitial(ArrayList::new);
 
-  public void batchUpdate(Object... objects) throws InterruptedException {
-    batchUpdate(defaultBatchSize, toPartner(objects));
+  public void batchUpdate(List<Object> objects) throws InterruptedException {
+    for (Object object : objects) {
+      batchUpdate(defaultBatchSize, object);
+    }
   }
-  public void batchUpdate(int batchSize, Object... objects) throws InterruptedException {
+  public void batchUpdate(Object[] objects) throws InterruptedException {
+    for (Object object : objects) {
+      batchUpdate(defaultBatchSize, object);
+    }
+  }
+  public void batchUpdate(int batchSize, List<Object> objects) throws InterruptedException {
+    for (Object object : objects) {
+      batchUpdate(batchSize, object);
+    }
+  }
+  public void batchUpdate(int batchSize, Object[] objects) throws InterruptedException {
+    for (Object object : objects) {
+      batchUpdate(batchSize, object);
+    }
+  }
+  public void batchUpdate(Object object) throws InterruptedException {
+    batchUpdate(defaultBatchSize, object);
+  }
+  public void batchUpdate(int batchSize, Object object) throws InterruptedException {
     batchSize = Math.min(batchSize, MAX_BATCH_SIZE);
 
-    batchUpdates.get().addAll(Arrays.asList(toPartner(objects)));
+    batchUpdates.get().add(toPartner(object));
 
     if (batchUpdates.get().size() >= batchSize) {
       update(prepareBatchActions(batchUpdates.get()));
@@ -414,13 +449,33 @@ public class SFDCPartnerAPIClient {
     }
   }
 
-  public void batchDelete(Object... objects) throws InterruptedException {
-    batchDelete(defaultBatchSize, toPartner(objects));
+  public void batchDelete(List<Object> objects) throws InterruptedException {
+    for (Object object : objects) {
+      batchDelete(defaultBatchSize, object);
+    }
   }
-  public void batchDelete(int batchSize, Object... objects) throws InterruptedException {
+  public void batchDelete(Object[] objects) throws InterruptedException {
+    for (Object object : objects) {
+      batchDelete(defaultBatchSize, object);
+    }
+  }
+  public void batchDelete(int batchSize, List<Object> objects) throws InterruptedException {
+    for (Object object : objects) {
+      batchDelete(batchSize, object);
+    }
+  }
+  public void batchDelete(int batchSize, Object[] objects) throws InterruptedException {
+    for (Object object : objects) {
+      batchDelete(batchSize, object);
+    }
+  }
+  public void batchDelete(Object object) throws InterruptedException {
+    batchDelete(defaultBatchSize, object);
+  }
+  public void batchDelete(int batchSize, Object object) throws InterruptedException {
     batchSize = Math.min(batchSize, MAX_BATCH_SIZE);
 
-    batchDeletes.get().addAll(Arrays.asList(toPartner(objects)));
+    batchDeletes.get().add(toPartner(object));
 
     if (batchDeletes.get().size() >= batchSize) {
       delete(prepareBatchActions(batchDeletes.get()));
@@ -537,7 +592,7 @@ public class SFDCPartnerAPIClient {
     }
   }
 
-  private SaveResult[] _update(int count, SObject... sObjects) throws InterruptedException {
+  private SaveResult[] _update(int count, SObject[] sObjects) throws InterruptedException {
     String clazz = sObjects[0].getType();
     Map<String, SObject> byId = Arrays.stream(sObjects).collect(Collectors.toMap(SObject::getId, Function.identity()));
     String ids = byId.values().stream().map(SObject::getId).collect(Collectors.joining(","));
@@ -566,7 +621,8 @@ public class SFDCPartnerAPIClient {
                 && (e.getStatusCode().toString().contains("LOCK") || e.getMessage().contains("LOCK")))) {
           log.info("update attempt {} failed due to locks; retrying {} {} in 10s", count, clazz, saveResult.getId());
           Thread.sleep(10000);
-          SaveResult retryResult = _update(count + 1, byId.get(saveResult.getId()))[0];
+          SObject sObject = byId.get(saveResult.getId());
+          SaveResult retryResult = _update(count + 1, new SObject[]{sObject})[0];
           saveResults[i] = retryResult;
         }
       }
@@ -585,7 +641,7 @@ public class SFDCPartnerAPIClient {
     }
   }
 
-  private DeleteResult[] _delete(int count, SObject... sObjects) throws InterruptedException {
+  private DeleteResult[] _delete(int count, SObject[] sObjects) throws InterruptedException {
     String clazz = sObjects[0].getType();
     Map<String, SObject> byId = Arrays.stream(sObjects).collect(Collectors.toMap(SObject::getId, Function.identity()));
     String ids = byId.values().stream().map(SObject::getId).collect(Collectors.joining(","));
@@ -614,7 +670,8 @@ public class SFDCPartnerAPIClient {
                 && (e.getStatusCode().toString().contains("LOCK") || e.getMessage().contains("LOCK")))) {
           log.info("delete attempt {} failed due to locks; retrying {} {} in 10s", count, clazz, deleteResult.getId());
           Thread.sleep(10000);
-          DeleteResult retryResult = _delete(count + 1, byId.get(deleteResult.getId()))[0];
+          SObject sObject = byId.get(deleteResult.getId());
+          DeleteResult retryResult = _delete(count + 1, new SObject[]{sObject})[0];
           deleteResults[i] = retryResult;
         }
       }
