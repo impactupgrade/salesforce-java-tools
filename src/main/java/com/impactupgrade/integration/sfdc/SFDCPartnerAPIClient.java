@@ -512,6 +512,25 @@ public class SFDCPartnerAPIClient {
     }
   }
 
+  // Helper method for adding a file attachment to a record, using the more modern approach (Content API, as opposed
+  // to the old Attachment API).
+  public void uploadAttachment(String filename, byte[] content, String targetId) throws InterruptedException, ConnectionException {
+    SObject contentVersion = new SObject("ContentVersion");
+    contentVersion.setField("PathOnClient", filename);
+    contentVersion.setField("VersionData", content);
+    SaveResult saveResult = insert(contentVersion);
+
+    if (saveResult.isSuccess()) {
+      // Implicitly created a ContentDocument -- need to retrieve its ID for use with ContentDocumentLink.
+      contentVersion = querySingle("SELECT ContentDocumentId FROM ContentVersion WHERE Id='" + saveResult.getId() + "'").get();
+
+      SObject contentDocumentLink = new SObject("ContentDocumentLink");
+      contentDocumentLink.setField("ContentDocumentId", contentVersion.getField("ContentDocumentId"));
+      contentDocumentLink.setField("LinkedEntityId", targetId);
+      insert(contentDocumentLink);
+    }
+  }
+
   private QueryResult _query(int count, String queryString) throws ConnectionException, InterruptedException {
     try {
       return partnerConnection.get().query(queryString);
