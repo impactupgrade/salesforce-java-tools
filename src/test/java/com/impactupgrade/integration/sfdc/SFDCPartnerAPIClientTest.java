@@ -113,6 +113,7 @@ public class SFDCPartnerAPIClientTest {
   public void testToMap() {
     SObject user = new SObject("User");
     user.setField("Email", "someone@some.org");
+    user.setField("Active", true);
 
     SObject account = new SObject("Account");
     account.setField("Name", "Meyer Household");
@@ -136,5 +137,16 @@ public class SFDCPartnerAPIClientTest {
     assertEquals("Meyer", opportunityMap.get("Contact.LastName"));
     assertEquals("Meyer Household", opportunityMap.get("Contact.Account.Name"));
     assertEquals("someone@some.org", opportunityMap.get("Contact.Account.Owner.Email"));
+    assertEquals(true, opportunityMap.get("Contact.Account.Owner.Active"));
+
+    Map<String, String> opportunityMapOfStrings = CLIENT.toMapOfStrings(opportunity);
+
+    assertEquals("Meyer Donation", opportunityMapOfStrings.get("Name"));
+    assertEquals("5.0", opportunityMapOfStrings.get("Amount"));
+    assertEquals("Brett", opportunityMapOfStrings.get("Contact.FirstName"));
+    assertEquals("Meyer", opportunityMapOfStrings.get("Contact.LastName"));
+    assertEquals("Meyer Household", opportunityMapOfStrings.get("Contact.Account.Name"));
+    assertEquals("someone@some.org", opportunityMapOfStrings.get("Contact.Account.Owner.Email"));
+    assertEquals("true", opportunityMapOfStrings.get("Contact.Account.Owner.Active"));
   }
 }

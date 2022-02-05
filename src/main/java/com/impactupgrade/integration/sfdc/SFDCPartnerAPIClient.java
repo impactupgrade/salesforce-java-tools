@@ -554,6 +554,15 @@ public class SFDCPartnerAPIClient {
     return map;
   }
 
+  // Some use cases (ex: object mapper frameworks) can better handle conversions from Strings, versus the
+  // ambiguity of Object.
+  public Map<String, String> toMapOfStrings(SObject sObject) {
+    return toMap(sObject, "").entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> {
+      Object value = e.getValue();
+      return value == null ? "" : value + "";
+    }));
+  }
+
   private QueryResult _query(int count, String queryString) throws ConnectionException, InterruptedException {
     try {
       return partnerConnection.get().query(queryString);
