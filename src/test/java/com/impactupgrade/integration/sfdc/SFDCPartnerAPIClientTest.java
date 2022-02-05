@@ -7,6 +7,12 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Calendar;
+import java.util.Map;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 public class SFDCPartnerAPIClientTest {
 
@@ -30,16 +36,16 @@ public class SFDCPartnerAPIClientTest {
 
     SObject partnerSObject = CLIENT.toPartner(contact);
 
-    Assert.assertEquals("c123", partnerSObject.getId());
-    Assert.assertEquals(35.0, partnerSObject.getSObjectField("Age__c"));
-    Assert.assertEquals(true, partnerSObject.getSObjectField("Email_Opt_Out__c"));
-    Assert.assertEquals("Brett", partnerSObject.getSObjectField("FirstName"));
-    Assert.assertEquals("Meyer", partnerSObject.getSObjectField("LastName"));
-    Assert.assertArrayEquals(new String[]{"Phone", "Email"}, partnerSObject.getFieldsToNull());
-    Assert.assertEquals("a123", partnerSObject.getSObjectField("AccountId"));
-    Assert.assertNotNull(partnerSObject.getSObjectField("Account"));
-    Assert.assertEquals("a123", ((SObject) partnerSObject.getSObjectField("Account")).getSObjectField("Id"));
-    Assert.assertEquals("Meyer Household", ((SObject) partnerSObject.getSObjectField("Account")).getSObjectField("Name"));
+    assertEquals("c123", partnerSObject.getId());
+    assertEquals(35.0, partnerSObject.getSObjectField("Age__c"));
+    assertEquals(true, partnerSObject.getSObjectField("Email_Opt_Out__c"));
+    assertEquals("Brett", partnerSObject.getSObjectField("FirstName"));
+    assertEquals("Meyer", partnerSObject.getSObjectField("LastName"));
+    assertArrayEquals(new String[]{"Phone", "Email"}, partnerSObject.getFieldsToNull());
+    assertEquals("a123", partnerSObject.getSObjectField("AccountId"));
+    assertNotNull(partnerSObject.getSObjectField("Account"));
+    assertEquals("a123", ((SObject) partnerSObject.getSObjectField("Account")).getSObjectField("Id"));
+    assertEquals("Meyer Household", ((SObject) partnerSObject.getSObjectField("Account")).getSObjectField("Name"));
   }
 
   @Test
@@ -63,32 +69,32 @@ public class SFDCPartnerAPIClientTest {
 
     Contact contact = CLIENT.toEnterprise(Contact.class, sObject);
 
-    Assert.assertEquals("c123", contact.getId());
-    Assert.assertEquals("a123", contact.getAccountId());
-    Assert.assertEquals(Double.valueOf(35.0), contact.getAge__c());
-    Assert.assertEquals(1985, contact.getBirthdate().get(Calendar.YEAR));
+    assertEquals("c123", contact.getId());
+    assertEquals("a123", contact.getAccountId());
+    assertEquals(Double.valueOf(35.0), contact.getAge__c());
+    assertEquals(1985, contact.getBirthdate().get(Calendar.YEAR));
     // reminder: Java time is horrible, and month starts at 0, because reasons
-    Assert.assertEquals(10, contact.getBirthdate().get(Calendar.MONTH) + 1);
-    Assert.assertEquals(30, contact.getBirthdate().get(Calendar.DATE));
-    Assert.assertEquals(true, contact.getEmail_Opt_Out__c());
-    Assert.assertEquals("Brett", contact.getFirstName());
-    Assert.assertEquals("Meyer", contact.getLastName());
-    Assert.assertArrayEquals(new String[]{"Phone", "Email"}, contact.getFieldsToNull());
+    assertEquals(10, contact.getBirthdate().get(Calendar.MONTH) + 1);
+    assertEquals(30, contact.getBirthdate().get(Calendar.DATE));
+    assertEquals(true, contact.getEmail_Opt_Out__c());
+    assertEquals("Brett", contact.getFirstName());
+    assertEquals("Meyer", contact.getLastName());
+    assertArrayEquals(new String[]{"Phone", "Email"}, contact.getFieldsToNull());
 
-    Assert.assertNotNull(contact.getAccount());
-    Assert.assertEquals("a123", contact.getAccount().getId());
-    Assert.assertEquals("Meyer Household", contact.getAccount().getName());
+    assertNotNull(contact.getAccount());
+    assertEquals("a123", contact.getAccount().getId());
+    assertEquals("Meyer Household", contact.getAccount().getName());
   }
 
   @Test
   public void testToEnterpriseDefaultValues() {
     SObject partnerSObject = new SObject("Contact");
     Contact contact = CLIENT.toEnterprise(Contact.class, partnerSObject);
-    Assert.assertEquals(false, contact.getEmail_Opt_Out__c());
+    assertEquals(false, contact.getEmail_Opt_Out__c());
 
     // then convert it back to SObject and make sure the default isn't carried over
     partnerSObject = CLIENT.toPartner(contact);
-    Assert.assertNull(partnerSObject.getSObjectField("Email_Opt_Out__c"));
+    assertNull(partnerSObject.getSObjectField("Email_Opt_Out__c"));
   }
 
   @Test
@@ -97,9 +103,38 @@ public class SFDCPartnerAPIClientTest {
     // query result fields are always strings, so test for conversion
     partnerSObject.setSObjectField("isSalesforceSilly__c", "true");
     Contact contact = CLIENT.toEnterprise(Contact.class, partnerSObject);
-    Assert.assertEquals(true, contact.getIsSalesforceSilly__c());
+    assertEquals(true, contact.getIsSalesforceSilly__c());
 
     partnerSObject = CLIENT.toPartner(contact);
-    Assert.assertEquals(true, partnerSObject.getSObjectField("isSalesforceSilly__c"));
+    assertEquals(true, partnerSObject.getSObjectField("isSalesforceSilly__c"));
+  }
+  
+  @Test
+  public void testToMap() {
+    SObject user = new SObject("User");
+    user.setField("Email", "someone@some.org");
+
+    SObject account = new SObject("Account");
+    account.setField("Name", "Meyer Household");
+    account.setField("Owner", user);
+    
+    SObject contact = new SObject("Contact");
+    contact.setField("FirstName", "Brett");
+    contact.setField("LastName", "Meyer");
+    contact.setField("Account", account);
+    
+    SObject opportunity = new SObject("Opportunity");
+    opportunity.setField("Name", "Meyer Donation");
+    opportunity.setField("Amount", 5.0);
+    opportunity.setField("Contact", contact);
+
+    Map<String, Object> opportunityMap = CLIENT.toMap(opportunity);
+
+    assertEquals("Meyer Donation", opportunityMap.get("Name"));
+    assertEquals(5.0, opportunityMap.get("Amount"));
+    assertEquals("Brett", opportunityMap.get("Contact.FirstName"));
+    assertEquals("Meyer", opportunityMap.get("Contact.LastName"));
+    assertEquals("Meyer Household", opportunityMap.get("Contact.Account.Name"));
+    assertEquals("someone@some.org", opportunityMap.get("Contact.Account.Owner.Email"));
   }
 }

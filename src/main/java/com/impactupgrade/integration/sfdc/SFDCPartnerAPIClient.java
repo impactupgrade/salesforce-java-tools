@@ -14,6 +14,7 @@ import com.sforce.soap.partner.fault.ApiFault;
 import com.sforce.soap.partner.sobject.SObject;
 import com.sforce.ws.ConnectionException;
 import com.sforce.ws.ConnectorConfig;
+import com.sforce.ws.bind.XmlObject;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -25,6 +26,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -529,6 +532,26 @@ public class SFDCPartnerAPIClient {
       contentDocumentLink.setField("LinkedEntityId", targetId);
       insert(contentDocumentLink);
     }
+  }
+
+  public Map<String, Object> toMap(SObject sObject) {
+    return toMap(sObject, "");
+  }
+
+  private Map<String, Object> toMap(XmlObject xmlObject, String prefix) {
+    Map<String, Object> map = new HashMap<>();
+
+    Iterator<XmlObject> children = xmlObject.getChildren();
+    while (children.hasNext()) {
+      XmlObject child = children.next();
+      if (child.hasChildren()) {
+        map.putAll(toMap(child, prefix + child.getName().getLocalPart() + "."));
+      } else {
+        map.put(prefix + child.getName().getLocalPart(), child.getValue());
+      }
+    }
+
+    return map;
   }
 
   private QueryResult _query(int count, String queryString) throws ConnectionException, InterruptedException {
