@@ -1,8 +1,8 @@
 # salesforce-java-tools
 
-Working with the Salesforce API can be a **pain**. Although we're old school and can appreciate some of the benefits of strongly-typed SOAP contracts, it's easy to wind up with a solution that's brittle and not resilient.
+Working with the Salesforce Parnter API and Enterprise API can be a **pain**. Although we're old school and appreciate some of the benefits of strongly-typed SOAP contracts, it's easy to wind up with a solution that's brittle and not resilient.
 
-salesforce-java-tools is the backbone of all our Salesforce integrations within the [Nonprofit Nucleus](https://www.impactupgrade.com/nonprofit-nucleus/) engine. In particular, <a href="https://github.com/impactupgrade/salesforce-java-tools/blob/master/src/main/java/com/impactupgrade/integration/sfdc/SFDCPartnerAPIClient.java">SFDCPartnerAPIClient</a> supports all the bells-and-whistles and hardening we require: mapping between Partner API and Enterprise API objects, batched actions, retries, session/connection caching, and DRY helper methods.
+salesforce-java-tools is the backbone of all our deep Salesforce integrations within the [Nonprofit Nucleus](https://www.impactupgrade.com/nonprofit-nucleus/) engine. In particular, <a href="https://github.com/impactupgrade/salesforce-java-tools/blob/master/src/main/java/com/impactupgrade/integration/sfdc/SFDCPartnerAPIClient.java">SFDCPartnerAPIClient</a> supports all the bells-and-whistles and hardening we require: mapping between Partner API and Enterprise API objects, batched actions, retries, paging, session/connection caching, and DRY helper methods.
 
 ## Impact Upgrade
 
@@ -16,7 +16,7 @@ Add the following Maven dependency:
 <dependency>
     <groupId>com.impactupgrade.integration</groupId>
     <artifactId>salesforce-java-tools</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.3.2-SNAPSHOT</version>
 </dependency>
 ```
 
