@@ -98,7 +98,13 @@ public class SFDCPartnerAPIClient {
 //          connectorConfig.setTraceMessage(true);
 //          connectorConfig.setPrettyPrintXml(true);
           try {
-            return Connector.newConnection(connectorConfig);
+            PartnerConnection partnerConnection = Connector.newConnection(connectorConfig);
+
+            // Fuzzy duplicating detection rules are super helpful when using the web dashboard, but can wreck havoc
+            // on data integrations through the API. Globally disable duplicate checks on inserts/updates.
+            partnerConnection.setDuplicateRuleHeader(true, false, false);
+
+            return partnerConnection;
           } catch (ConnectionException e) {
             throw new RuntimeException(e);
           }
