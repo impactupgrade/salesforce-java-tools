@@ -393,12 +393,14 @@ public class SFDCPartnerAPIClient {
     return _query(0, queryString);
   }
 
-  // Note on inserts: we're only allowing one at a time and disallowing batching. The API does not allow multiple
-  // records of the same type to be inserted without explicit IDs. We're always inserting with null IDs, allowing
-  // SF to auto-generate them. :(
-
+  public SaveResult[] insert(List<Object> objects) throws InterruptedException {
+    return _insert(0, toPartner(objects).toArray(new SObject[0]));
+  }
+  public SaveResult[] insert(Object[] objects) throws InterruptedException {
+    return _insert(0, toPartner(objects));
+  }
   public SaveResult insert(Object object) throws InterruptedException {
-    return _insert(0, toPartner(object));
+    return _insert(0, new SObject[]{toPartner(object)})[0];
   }
 
   public SaveResult[] update(List<Object> objects) throws InterruptedException {
@@ -421,8 +423,43 @@ public class SFDCPartnerAPIClient {
     return _delete(0, new SObject[]{toPartner(object)})[0];
   }
 
+  private final ThreadLocal<List<SObject>> batchInserts = ThreadLocal.withInitial(ArrayList::new);
   private final ThreadLocal<List<SObject>> batchUpdates = ThreadLocal.withInitial(ArrayList::new);
   private final ThreadLocal<List<SObject>> batchDeletes = ThreadLocal.withInitial(ArrayList::new);
+
+  public void batchInsert(List<Object> objects) throws InterruptedException {
+    for (Object object : objects) {
+      batchInsert(defaultBatchSize, object);
+    }
+  }
+  public void batchInsert(Object[] objects) throws InterruptedException {
+    for (Object object : objects) {
+      batchInsert(defaultBatchSize, object);
+    }
+  }
+  public void batchInsert(int batchSize, List<Object> objects) throws InterruptedException {
+    for (Object object : objects) {
+      batchInsert(batchSize, object);
+    }
+  }
+  public void batchInsert(int batchSize, Object[] objects) throws InterruptedException {
+    for (Object object : objects) {
+      batchInsert(batchSize, object);
+    }
+  }
+  public void batchInsert(Object object) throws InterruptedException {
+    batchInsert(defaultBatchSize, object);
+  }
+  public void batchInsert(int batchSize, Object object) throws InterruptedException {
+    batchSize = Math.min(batchSize, MAX_BATCH_SIZE);
+
+    batchInserts.get().add(toPartner(object));
+
+    if (batchInserts.get().size() >= batchSize) {
+      insert(prepareBatchActions(batchInserts.get()));
+      batchInserts.get().clear();
+    }
+  }
 
   public void batchUpdate(List<Object> objects) throws InterruptedException {
     for (Object object : objects) {
@@ -511,6 +548,10 @@ public class SFDCPartnerAPIClient {
    * @throws InterruptedException
    */
   public void batchFlush() throws InterruptedException {
+    if (!batchInserts.get().isEmpty()) {
+      insert(prepareBatchActions(batchInserts.get()));
+      batchInserts.get().clear();
+    }
     if (!batchUpdates.get().isEmpty()) {
       update(prepareBatchActions(batchUpdates.get()));
       batchUpdates.get().clear();
@@ -609,43 +650,49 @@ public class SFDCPartnerAPIClient {
     }
   }
 
-  private SaveResult _insert(int count, SObject sObject) throws InterruptedException {
-    String clazz = sObject.getType();
+  private SaveResult[] _insert(int count, SObject[] sObjects) throws InterruptedException {
+    String clazz = sObjects[0].getType();
 
     if (count == 6) {
       log.error("unable to complete insert {} by attempt {}", clazz, count);
       SaveResult saveResult = new SaveResult();
       saveResult.setSuccess(false);
-      return saveResult;
+      return new SaveResult[]{saveResult};
     }
 
     log.info("inserting {}", clazz);
 
     try {
-      SaveResult saveResult = partnerConnection.get().create(new SObject[]{sObject})[0];
-      log.info(saveResult);
+      SaveResult[] saveResults = partnerConnection.get().create(sObjects);
 
-      // if any insert failed due to a row lock, retry that single object on its own
-      // a few different types of lock-related error codes, so don't use the enum itself
-      if (!saveResult.isSuccess() && Arrays.stream(saveResult.getErrors())
-          .anyMatch(e -> e.getStatusCode() != null
-              && (e.getStatusCode().toString().contains("LOCK") || e.getMessage().contains("LOCK")))) {
-        log.info("insert attempt {} failed due to locks; retrying {} {} in 10s", count, clazz, saveResult.getId());
-        Thread.sleep(10000);
-        return _insert(count + 1, sObject);
+      for (int i = 0; i < saveResults.length; i++) {
+        SaveResult saveResult = saveResults[i];
+
+        log.info(saveResult);
+
+        // if any insert failed due to a row lock, retry that single object on its own
+        // a few different types of lock-related error codes, so don't use the enum itself
+        // TODO: Need to rethink this now that batching is implemented! See how batchUpdate needs to maintain a separate by-id map.
+//        if (!saveResult.isSuccess() && Arrays.stream(saveResult.getErrors())
+//            .anyMatch(e -> e.getStatusCode() != null
+//                && (e.getStatusCode().toString().contains("LOCK") || e.getMessage().contains("LOCK")))) {
+//          log.info("insert attempt {} failed due to locks; retrying {} {} in 10s", count, clazz, saveResult.getId());
+//          Thread.sleep(10000);
+//          return _insert(count + 1, sObject);
+//        }
       }
 
-      return saveResult;
+      return saveResults;
     } catch (ApiFault e) {
       log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
 
       SaveResult saveResult = new SaveResult();
       saveResult.setSuccess(false);
-      return saveResult;
+      return new SaveResult[]{saveResult};
     } catch (ConnectionException e) {
       log.warn("insert attempt {} failed due to connection issues; retrying {} in 10s", count, clazz, e);
       Thread.sleep(10000);
-      return _insert(count + 1, sObject);
+      return _insert(count + 1, sObjects);
     }
   }
 
