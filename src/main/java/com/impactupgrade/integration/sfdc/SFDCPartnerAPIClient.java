@@ -424,7 +424,9 @@ public class SFDCPartnerAPIClient {
   }
 
   private final ThreadLocal<List<SObject>> batchInserts = ThreadLocal.withInitial(ArrayList::new);
+  private final ThreadLocal<List<SaveResult>> batchInsertResults = ThreadLocal.withInitial(ArrayList::new);
   private final ThreadLocal<List<SObject>> batchUpdates = ThreadLocal.withInitial(ArrayList::new);
+  private final ThreadLocal<List<SaveResult>> batchUpdateResults = ThreadLocal.withInitial(ArrayList::new);
   private final ThreadLocal<List<SObject>> batchDeletes = ThreadLocal.withInitial(ArrayList::new);
 
   public void batchInsert(List<Object> objects) throws InterruptedException {
@@ -456,7 +458,8 @@ public class SFDCPartnerAPIClient {
     batchInserts.get().add(toPartner(object));
 
     if (batchInserts.get().size() >= batchSize) {
-      insert(prepareBatchActions(batchInserts.get()));
+      SaveResult[] results = insert(prepareBatchActions(batchInserts.get()));
+      batchInsertResults.get().addAll(Arrays.stream(results).toList());
       batchInserts.get().clear();
     }
   }
@@ -490,7 +493,8 @@ public class SFDCPartnerAPIClient {
     batchUpdates.get().add(toPartner(object));
 
     if (batchUpdates.get().size() >= batchSize) {
-      update(prepareBatchActions(batchUpdates.get()));
+      SaveResult[] results = update(prepareBatchActions(batchUpdates.get()));
+      batchUpdateResults.get().addAll(Arrays.stream(results).toList());
       batchUpdates.get().clear();
     }
   }
@@ -547,19 +551,37 @@ public class SFDCPartnerAPIClient {
    *
    * @throws InterruptedException
    */
-  public void batchFlush() throws InterruptedException {
+  public record BatchResults(List<SaveResult> batchInsertResults, List<SaveResult> batchUpdateResults){}
+  public BatchResults batchFlush() throws InterruptedException {
     if (!batchInserts.get().isEmpty()) {
-      insert(prepareBatchActions(batchInserts.get()));
+      SaveResult[] results = insert(prepareBatchActions(batchInserts.get()));
+      batchInsertResults.get().addAll(Arrays.stream(results).toList());
       batchInserts.get().clear();
     }
     if (!batchUpdates.get().isEmpty()) {
-      update(prepareBatchActions(batchUpdates.get()));
+      SaveResult[] results = update(prepareBatchActions(batchUpdates.get()));
+      batchUpdateResults.get().addAll(Arrays.stream(results).toList());
       batchUpdates.get().clear();
     }
     if (!batchDeletes.get().isEmpty()) {
       delete(prepareBatchActions(batchDeletes.get()));
       batchDeletes.get().clear();
     }
+
+    // clone the results, clear out the original lists, and return in one payload
+    List<SaveResult> _batchInsertResults = new ArrayList<>();
+    Iterator<SaveResult> itr = batchInsertResults.get().iterator();
+    while (itr.hasNext()) {
+      _batchInsertResults.add(itr.next());
+      itr.remove();
+    }
+    List<SaveResult> _batchUpdateResults = new ArrayList<>();
+    itr = batchUpdateResults.get().iterator();
+    while (itr.hasNext()) {
+      _batchUpdateResults.add(itr.next());
+      itr.remove();
+    }
+    return new BatchResults(_batchInsertResults, _batchUpdateResults);
   }
 
   // Helper method for adding a file attachment to a record, using the more modern approach (Content API, as opposed
