@@ -639,8 +639,8 @@ public class SFDCPartnerAPIClient {
       log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
       throw e;
     } catch (ConnectionException e) {
-      log.warn("query attempt {} failed due to connection issues; retrying in 10s", count, e);
-      Thread.sleep(10000);
+      log.warn("query attempt {} failed due to connection issues; retrying in 5s", count, e);
+      Thread.sleep(5000);
 
       if (count == 5) {
         log.error("unable to complete query by attempt {}", count);
@@ -659,8 +659,8 @@ public class SFDCPartnerAPIClient {
       log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
       throw e;
     } catch (ConnectionException e) {
-      log.warn("query attempt {} failed due to connection issues; retrying in 10s", count, e);
-      Thread.sleep(10000);
+      log.warn("query attempt {} failed due to connection issues; retrying in 5s", count, e);
+      Thread.sleep(5000);
 
       if (count == 5) {
         log.error("unable to complete query by attempt {}", count);
@@ -694,14 +694,15 @@ public class SFDCPartnerAPIClient {
 
         // if any insert failed due to a row lock, retry that single object on its own
         // a few different types of lock-related error codes, so don't use the enum itself
-        // TODO: Need to rethink this now that batching is implemented! See how batchUpdate needs to maintain a separate by-id map.
-//        if (!saveResult.isSuccess() && Arrays.stream(saveResult.getErrors())
-//            .anyMatch(e -> e.getStatusCode() != null
-//                && (e.getStatusCode().toString().contains("LOCK") || e.getMessage().contains("LOCK")))) {
-//          log.info("insert attempt {} failed due to locks; retrying {} {} in 10s", count, clazz, saveResult.getId());
-//          Thread.sleep(10000);
-//          return _insert(count + 1, sObject);
-//        }
+        if (!saveResult.isSuccess() && Arrays.stream(saveResult.getErrors())
+            .anyMatch(e -> e.getStatusCode() != null
+                && (e.getStatusCode().toString().contains("LOCK") || e.getMessage().contains("LOCK")))) {
+          log.info("insert attempt {} failed due to locks; retrying {} {} in 5s", count, clazz, i);
+          Thread.sleep(5000);
+          SObject sObject = sObjects[i];
+          SaveResult retryResult = _insert(count + 1, new SObject[]{sObject})[0];
+          saveResults[i] = retryResult;
+        }
       }
 
       return saveResults;
@@ -712,8 +713,8 @@ public class SFDCPartnerAPIClient {
       saveResult.setSuccess(false);
       return new SaveResult[]{saveResult};
     } catch (ConnectionException e) {
-      log.warn("insert attempt {} failed due to connection issues; retrying {} in 10s", count, clazz, e);
-      Thread.sleep(10000);
+      log.warn("insert attempt {} failed due to connection issues; retrying {} in 5s", count, clazz, e);
+      Thread.sleep(5000);
       return _insert(count + 1, sObjects);
     }
   }
@@ -745,9 +746,9 @@ public class SFDCPartnerAPIClient {
         if (!saveResult.isSuccess() && Arrays.stream(saveResult.getErrors())
             .anyMatch(e -> e.getStatusCode() != null
                 && (e.getStatusCode().toString().contains("LOCK") || e.getMessage().contains("LOCK")))) {
-          log.info("update attempt {} failed due to locks; retrying {} {} in 10s", count, clazz, saveResult.getId());
-          Thread.sleep(10000);
-          SObject sObject = byId.get(saveResult.getId());
+          log.info("update attempt {} failed due to locks; retrying {} {} in 5s", count, clazz, saveResult.getId());
+          Thread.sleep(5000);
+          SObject sObject = sObjects[i];
           SaveResult retryResult = _update(count + 1, new SObject[]{sObject})[0];
           saveResults[i] = retryResult;
         }
@@ -761,8 +762,8 @@ public class SFDCPartnerAPIClient {
       saveResult.setSuccess(false);
       return new SaveResult[]{saveResult};
     } catch (ConnectionException e) {
-      log.warn("update attempt {} failed due to connection issues; retrying {} {} in 10s", count, clazz, ids, e);
-      Thread.sleep(10000);
+      log.warn("update attempt {} failed due to connection issues; retrying {} {} in 5s", count, clazz, ids, e);
+      Thread.sleep(5000);
       return _update(count + 1, sObjects);
     }
   }
@@ -794,9 +795,9 @@ public class SFDCPartnerAPIClient {
         if (!deleteResult.isSuccess() && Arrays.stream(deleteResult.getErrors())
             .anyMatch(e -> e.getStatusCode() != null
                 && (e.getStatusCode().toString().contains("LOCK") || e.getMessage().contains("LOCK")))) {
-          log.info("delete attempt {} failed due to locks; retrying {} {} in 10s", count, clazz, deleteResult.getId());
-          Thread.sleep(10000);
-          SObject sObject = byId.get(deleteResult.getId());
+          log.info("delete attempt {} failed due to locks; retrying {} {} in 5s", count, clazz, deleteResult.getId());
+          Thread.sleep(5000);
+          SObject sObject = sObjects[i];
           DeleteResult retryResult = _delete(count + 1, new SObject[]{sObject})[0];
           deleteResults[i] = retryResult;
         }
@@ -810,8 +811,8 @@ public class SFDCPartnerAPIClient {
       deleteResult.setSuccess(false);
       return new DeleteResult[]{deleteResult};
     } catch (ConnectionException e) {
-      log.warn("delete attempt {} failed due to connection issues; retrying {} {} in 10s", count, clazz, ids, e);
-      Thread.sleep(10000);
+      log.warn("delete attempt {} failed due to connection issues; retrying {} {} in 5s", count, clazz, ids, e);
+      Thread.sleep(5000);
       return _delete(count + 1, sObjects);
     }
   }
