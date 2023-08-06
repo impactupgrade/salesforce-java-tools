@@ -367,7 +367,7 @@ public class SFDCPartnerAPIClient {
     // Silly, but needs to be mutable.
     List<SObject> records = new ArrayList<>(Arrays.asList(queryResult.getRecords()));
 
-    if (records.size() == 2000) {
+    if (!queryResult.isDone()) {
       records.addAll(_queryListAutoPaged(queryString, queryResult.getQueryLocator()));
     }
 
