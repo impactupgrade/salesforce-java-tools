@@ -721,8 +721,7 @@ public class SFDCPartnerAPIClient {
 
   private SaveResult[] _update(int count, SObject[] sObjects) throws InterruptedException {
     String clazz = sObjects[0].getType();
-    Map<String, SObject> byId = Arrays.stream(sObjects).collect(Collectors.toMap(SObject::getId, Function.identity()));
-    String ids = byId.values().stream().map(SObject::getId).collect(Collectors.joining(","));
+    String ids = Arrays.stream(sObjects).map(SObject::getId).collect(Collectors.joining(","));
 
     if (count == 6) {
       log.error("unable to complete update {} {} by attempt {}", clazz, ids, count);
@@ -770,7 +769,7 @@ public class SFDCPartnerAPIClient {
 
   private DeleteResult[] _delete(int count, SObject[] sObjects) throws InterruptedException {
     String clazz = sObjects[0].getType();
-    Map<String, SObject> byId = Arrays.stream(sObjects).collect(Collectors.toMap(SObject::getId, Function.identity()));
+    Map<String, SObject> byId = Arrays.stream(sObjects).collect(Collectors.toMap(SObject::getId, Function.identity(), (so1, so2) -> so1));
     String ids = byId.values().stream().map(SObject::getId).collect(Collectors.joining(","));
 
     if (count == 6) {
