@@ -7,6 +7,8 @@ import com.google.common.cache.LoadingCache;
 import com.sforce.soap.partner.Connector;
 import com.sforce.soap.partner.DeleteResult;
 import com.sforce.soap.partner.LoginResult;
+import com.sforce.soap.partner.MergeRequest;
+import com.sforce.soap.partner.MergeResult;
 import com.sforce.soap.partner.PartnerConnection;
 import com.sforce.soap.partner.QueryResult;
 import com.sforce.soap.partner.SaveResult;
@@ -423,6 +425,16 @@ public class SFDCPartnerAPIClient {
     return _delete(0, new SObject[]{toPartner(object)})[0];
   }
 
+  public MergeResult[] merge(List<MergeRequest> mergeRequests) throws InterruptedException {
+    return _merge(0, mergeRequests.toArray(new MergeRequest[0]));
+  }
+  public MergeResult[] merge(MergeRequest[] mergeRequests) throws InterruptedException {
+    return _merge(0, mergeRequests);
+  }
+  public MergeResult merge(MergeRequest mergeRequest) throws InterruptedException {
+    return _merge(0, new MergeRequest[]{mergeRequest})[0];
+  }
+
   private final ThreadLocal<List<SObject>> batchInserts = ThreadLocal.withInitial(ArrayList::new);
   private final ThreadLocal<List<SaveResult>> batchInsertResults = ThreadLocal.withInitial(ArrayList::new);
   private final ThreadLocal<List<SObject>> batchUpdates = ThreadLocal.withInitial(ArrayList::new);
@@ -813,6 +825,55 @@ public class SFDCPartnerAPIClient {
       log.warn("delete attempt {} failed due to connection issues; retrying {} {} in 5s", count, clazz, ids, e);
       Thread.sleep(5000);
       return _delete(count + 1, sObjects);
+    }
+  }
+
+  private MergeResult[] _merge(int count, MergeRequest[] mergeRequests) throws InterruptedException {
+    String clazz = mergeRequests[0].getMasterRecord().getType();
+    Map<String, SObject> byId = Arrays.stream(mergeRequests).map(MergeRequest::getMasterRecord).collect(Collectors.toMap(SObject::getId, Function.identity(), (so1, so2) -> so1));
+    String ids = byId.values().stream().map(SObject::getId).collect(Collectors.joining(","));
+
+    if (count == 6) {
+      log.error("unable to complete merge {} {} by attempt {}", clazz, ids, count);
+      MergeResult mergeResult = new MergeResult();
+      mergeResult.setSuccess(false);
+      return new MergeResult[]{mergeResult};
+    }
+
+    log.info("merging {} {}", clazz, ids);
+
+    try {
+      MergeResult[] mergeResults = partnerConnection.get().merge(mergeRequests);
+
+      for (int i = 0; i < mergeResults.length; i++) {
+        MergeResult mergeResult = mergeResults[i];
+
+        log.info(mergeResult);
+
+        // if any merge failed due to a row lock, retry that single object on its own
+        // a few different types of lock-related error codes, so don't use the enum itself
+        if (!mergeResult.isSuccess() && Arrays.stream(mergeResult.getErrors())
+            .anyMatch(e -> e.getStatusCode() != null
+                && (e.getStatusCode().toString().contains("LOCK") || e.getMessage().contains("LOCK")))) {
+          log.info("merge attempt {} failed due to locks; retrying {} {} in 5s", count, clazz, mergeResult.getId());
+          Thread.sleep(5000);
+          MergeRequest mergeRequest = mergeRequests[i];
+          MergeResult retryResult = _merge(count + 1, new MergeRequest[]{mergeRequest})[0];
+          mergeResults[i] = retryResult;
+        }
+      }
+
+      return mergeResults;
+    } catch (ApiFault e) {
+      log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
+
+      MergeResult mergeResult = new MergeResult();
+      mergeResult.setSuccess(false);
+      return new MergeResult[]{mergeResult};
+    } catch (ConnectionException e) {
+      log.warn("merge attempt {} failed due to connection issues; retrying {} {} in 5s", count, clazz, ids, e);
+      Thread.sleep(5000);
+      return _merge(count + 1, mergeRequests);
     }
   }
 }
