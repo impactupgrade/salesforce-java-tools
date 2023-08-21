@@ -3,7 +3,6 @@ package com.impactupgrade.integration.sfdc;
 import com.sforce.soap.enterprise.sobject.Account;
 import com.sforce.soap.enterprise.sobject.Contact;
 import com.sforce.soap.partner.sobject.SObject;
-import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Calendar;
@@ -16,7 +15,7 @@ import static org.junit.Assert.assertNull;
 
 public class SFDCPartnerAPIClientTest {
 
-  private static final SFDCPartnerAPIClient CLIENT = new SFDCPartnerAPIClient("", "", "", 200){};
+  private static final SFDCPartnerAPIClient CLIENT = new SFDCPartnerAPIClient("", "", ""){};
 
   @Test
   public void testToPartner() {

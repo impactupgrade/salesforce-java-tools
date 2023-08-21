@@ -70,7 +70,7 @@ public class SFDCPartnerAPIClient {
 
   private final AuthContext authContext;
   private final Supplier<PartnerConnection> partnerConnection;
-  private final int defaultBatchSize;
+  private int defaultBatchSize = 200;
   // 200 is the max allowed by the API
   private static final int MAX_BATCH_SIZE = 200;
 
@@ -113,7 +113,7 @@ public class SFDCPartnerAPIClient {
         }
       });
 
-  public SFDCPartnerAPIClient(String username, String password, String url, int defaultBatchSize) {
+  public SFDCPartnerAPIClient(String username, String password, String url) {
     authContext = new AuthContext();
     authContext.username = username;
     authContext.password = password;
@@ -126,8 +126,6 @@ public class SFDCPartnerAPIClient {
         throw new RuntimeException(e);
       }
     };
-
-    this.defaultBatchSize = defaultBatchSize;
   }
 
   /**
@@ -141,6 +139,10 @@ public class SFDCPartnerAPIClient {
     log.info("partner endpoint: " + loginResult.getServerUrl());
     log.info("metadata endpoint: " + loginResult.getMetadataServerUrl());
     return loginResult;
+  }
+
+  public void setDefaultBatchSize(int defaultBatchSize) {
+    this.defaultBatchSize = defaultBatchSize;
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
