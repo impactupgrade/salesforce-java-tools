@@ -29,11 +29,13 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -440,6 +442,11 @@ public class SFDCPartnerAPIClient {
   private final ThreadLocal<List<SObject>> batchInserts = ThreadLocal.withInitial(ArrayList::new);
   private final ThreadLocal<List<SaveResult>> batchInsertResults = ThreadLocal.withInitial(ArrayList::new);
   private final ThreadLocal<List<SObject>> batchUpdates = ThreadLocal.withInitial(ArrayList::new);
+  // Batch updates can have a maximum of 12 duplicate records (by-id). This is vital, since a single batch could
+  // be progressively adding additional fields to a record. Maintain the set of IDs in the current batch plus a
+  // current count of duplicates.
+  private final ThreadLocal<Set<String>> batchUpdateIds = ThreadLocal.withInitial(HashSet::new);
+  private final ThreadLocal<Integer> batchUpdateDuplicateCount = ThreadLocal.withInitial(() -> 0);
   private final ThreadLocal<List<SaveResult>> batchUpdateResults = ThreadLocal.withInitial(ArrayList::new);
   private final ThreadLocal<List<SObject>> batchDeletes = ThreadLocal.withInitial(ArrayList::new);
 
@@ -504,12 +511,27 @@ public class SFDCPartnerAPIClient {
   public void batchUpdate(int batchSize, Object object) throws InterruptedException {
     batchSize = Math.min(batchSize, MAX_BATCH_SIZE);
 
-    batchUpdates.get().add(toPartner(object));
+    SObject sObject = toPartner(object);
 
-    if (batchUpdates.get().size() >= batchSize) {
+    batchUpdates.get().add(sObject);
+
+    // Batch updates can have a maximum of 12 duplicate records (by-id). This is vital, since a single batch could
+    // be progressively adding additional fields to a record. Maintain the set of IDs in the current batch plus a
+    // current count of duplicates.
+    if (batchUpdateIds.get().contains(sObject.getId())) {
+      batchUpdateDuplicateCount.set(batchUpdateDuplicateCount.get() + 1);
+    } else {
+      batchUpdateIds.get().add(sObject.getId());
+    }
+
+    // The error message claims a maximum of 12 duplicate updates, but using 12 as the threshold still failed.
+    // Maybe they meant less than 12? 10 works...
+    if (batchUpdates.get().size() >= batchSize || batchUpdateDuplicateCount.get() == 10) {
       SaveResult[] results = update(prepareBatchActions(batchUpdates.get()));
       batchUpdateResults.get().addAll(Arrays.stream(results).toList());
       batchUpdates.get().clear();
+      batchUpdateIds.get().clear();
+      batchUpdateDuplicateCount.set(0);
     }
   }
 
@@ -576,6 +598,8 @@ public class SFDCPartnerAPIClient {
       SaveResult[] results = update(prepareBatchActions(batchUpdates.get()));
       batchUpdateResults.get().addAll(Arrays.stream(results).toList());
       batchUpdates.get().clear();
+      batchUpdateIds.get().clear();
+      batchUpdateDuplicateCount.set(0);
     }
     if (!batchDeletes.get().isEmpty()) {
       delete(prepareBatchActions(batchDeletes.get()));
