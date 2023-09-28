@@ -13,6 +13,7 @@ import com.sforce.soap.partner.PartnerConnection;
 import com.sforce.soap.partner.QueryResult;
 import com.sforce.soap.partner.SaveResult;
 import com.sforce.soap.partner.fault.ApiFault;
+import com.sforce.soap.partner.fault.UnexpectedErrorFault;
 import com.sforce.soap.partner.sobject.SObject;
 import com.sforce.ws.ConnectionException;
 import com.sforce.ws.ConnectorConfig;
@@ -674,8 +675,19 @@ public class SFDCPartnerAPIClient {
     try {
       return partnerConnection.get().query(queryString);
     } catch (ApiFault e) {
-      log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
-      throw e;
+      if (e instanceof UnexpectedErrorFault && e.getExceptionMessage().contains("Session timed out")) {
+        if (count == 5) {
+          log.error("unable to complete query by attempt {}", count);
+          throw e;
+        }
+        
+        partnerConnection.get().login(authContext.username, authContext.password);
+        return _query(count + 1, queryString);
+
+      } else {
+        log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
+        throw e;
+      }
     } catch (ConnectionException e) {
       log.warn("query attempt {} failed due to connection issues; retrying in 5s", count, e);
       Thread.sleep(5000);
