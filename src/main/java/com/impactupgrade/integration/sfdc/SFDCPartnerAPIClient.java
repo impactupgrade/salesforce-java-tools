@@ -347,12 +347,12 @@ public class SFDCPartnerAPIClient {
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   public List<SObject> queryList(String queryString) throws ConnectionException, InterruptedException {
-    return Stream.of(_query(0, queryString).getRecords())
+    return Stream.of(_query(queryString).getRecords())
         .collect(Collectors.toList());
   }
 
   public <T> List<T> queryList(Class<T> eClass, String queryString) throws ConnectionException, InterruptedException {
-    return Stream.of(_query(0, queryString).getRecords())
+    return Stream.of(_query(queryString).getRecords())
         .map(sObject -> toEnterprise(eClass, sObject))
         .collect(Collectors.toList());
   }
@@ -366,9 +366,9 @@ public class SFDCPartnerAPIClient {
       throws ConnectionException, InterruptedException {
     QueryResult queryResult;
     if (previousQueryLocator == null) {
-      queryResult = _query(0, queryString);
+      queryResult = _query(queryString);
     } else {
-      queryResult = _queryMore(0, previousQueryLocator);
+      queryResult = _queryMore(previousQueryLocator);
     }
 
     // Silly, but needs to be mutable.
@@ -382,22 +382,22 @@ public class SFDCPartnerAPIClient {
   }
 
   public Optional<SObject> querySingle(String queryString) throws ConnectionException, InterruptedException {
-    return Stream.of(_query(0, queryString).getRecords())
+    return Stream.of(_query(queryString).getRecords())
         .findFirst();
   }
 
   public <T> Optional<T> querySingle(Class<T> eClass, String queryString) throws ConnectionException, InterruptedException {
-    return Stream.of(_query(0, queryString).getRecords())
+    return Stream.of(_query(queryString).getRecords())
         .map(sObject -> toEnterprise(eClass, sObject))
         .findFirst();
   }
 
   public long queryCount(String queryString) throws ConnectionException, InterruptedException {
-    return _query(0, queryString).getSize();
+    return _query(queryString).getSize();
   }
 
   public QueryResult query(String queryString) throws ConnectionException, InterruptedException {
-    return _query(0, queryString);
+    return _query(queryString);
   }
 
   public SaveResult[] insert(List<Object> objects) throws InterruptedException {
@@ -671,54 +671,46 @@ public class SFDCPartnerAPIClient {
     }));
   }
 
-  private QueryResult _query(int count, String queryString) throws ConnectionException, InterruptedException {
-    try {
-      return partnerConnection.get().query(queryString);
-    } catch (ApiFault e) {
-      if (e instanceof UnexpectedErrorFault && e.getExceptionMessage().contains("Session timed out")) {
-        if (count == 5) {
-          log.error("unable to complete query by attempt {}", count);
-          throw e;
-        }
-        
-        partnerConnection.get().login(authContext.username, authContext.password);
-        return _query(count + 1, queryString);
-
-      } else {
-        log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
-        throw e;
-      }
-    } catch (ConnectionException e) {
-      log.warn("query attempt {} failed due to connection issues; retrying in 5s", count, e);
-      Thread.sleep(5000);
-
-      if (count == 5) {
-        log.error("unable to complete query by attempt {}", count);
-        // rethrow exception, since the whole flow simply needs to halt at this point
-        throw e;
-      }
-
-      return _query(count + 1, queryString);
-    }
+  private QueryResult _query(String queryString) throws ConnectionException, InterruptedException {
+    return queryWithRetry(() -> partnerConnection.get().query(queryString));
   }
 
-  private QueryResult _queryMore(int count, String previousQueryLocator) throws ConnectionException, InterruptedException {
-    try {
-      return partnerConnection.get().queryMore(previousQueryLocator);
-    } catch (ApiFault e) {
-      log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
-      throw e;
-    } catch (ConnectionException e) {
-      log.warn("query attempt {} failed due to connection issues; retrying in 5s", count, e);
-      Thread.sleep(5000);
+  private QueryResult _queryMore(String previousQueryLocator) throws ConnectionException, InterruptedException {
+    return queryWithRetry(() -> partnerConnection.get().queryMore(previousQueryLocator));
+  }
 
-      if (count == 5) {
-        log.error("unable to complete query by attempt {}", count);
-        // rethrow exception, since the whole flow simply needs to halt at this point
-        throw e;
+  private QueryResult queryWithRetry(CallableQuery<QueryResult> callableQuery) throws ConnectionException, InterruptedException {
+    int count = 0;
+    int maxTries = 5;
+    while(true) {
+      try {
+        return callableQuery.call();
+      } catch (Exception e) {
+        // check if max tries exceeded
+        if (++count == maxTries) {
+          log.error("unable to complete query by attempt {}", count);
+          // rethrow exception, since the whole flow simply needs to halt at this point
+          throw e;
+        }
+
+        if (e instanceof ApiFault) {
+          ApiFault apiFault = (ApiFault) e;
+          if (apiFault instanceof UnexpectedErrorFault && apiFault.getExceptionMessage().contains("INVALID_SESSION_ID")) {
+            partnerConnection.get().login(authContext.username, authContext.password);
+          } else {
+            log.error("query failed due to {}: {}", apiFault.getExceptionCode(), apiFault.getExceptionMessage(), e);
+            throw e;
+          }
+
+        } else if (e instanceof ConnectionException) {
+          log.warn("query attempt {} failed due to connection issues; retrying in 5s", count, e);
+          Thread.sleep(5000);
+        }
+        else {
+          // unknown exception - re-throwing without retry
+          throw e;
+        }
       }
-
-      return _queryMore(count + 1, previousQueryLocator);
     }
   }
 
@@ -757,11 +749,17 @@ public class SFDCPartnerAPIClient {
 
       return saveResults;
     } catch (ApiFault e) {
-      log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
 
       SaveResult saveResult = new SaveResult();
       saveResult.setSuccess(false);
-      return new SaveResult[]{saveResult};
+      SaveResult[] saveResults = new SaveResult[]{saveResult};
+      
+      if (e instanceof UnexpectedErrorFault && e.getExceptionMessage().contains("INVALID_SESSION_ID")) {
+        return retryAfterLogin(this::_insert, count + 1, sObjects, saveResults);  
+      } else {
+        log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
+        return saveResults; 
+      }
     } catch (ConnectionException e) {
       log.warn("insert attempt {} failed due to connection issues; retrying {} in 5s", count, clazz, e);
       Thread.sleep(5000);
@@ -805,11 +803,18 @@ public class SFDCPartnerAPIClient {
 
       return saveResults;
     } catch (ApiFault e) {
-      log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
 
       SaveResult saveResult = new SaveResult();
       saveResult.setSuccess(false);
-      return new SaveResult[]{saveResult};
+      SaveResult[] saveResults = new SaveResult[]{saveResult};
+      
+      if (e instanceof UnexpectedErrorFault && e.getExceptionMessage().contains("INVALID_SESSION_ID")) {
+        return retryAfterLogin(this::_update, count + 1, sObjects, saveResults);
+      } else {
+        log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
+        return saveResults;
+      }
+      
     } catch (ConnectionException e) {
       log.warn("update attempt {} failed due to connection issues; retrying {} {} in 5s", count, clazz, ids, e);
       Thread.sleep(5000);
@@ -854,11 +859,18 @@ public class SFDCPartnerAPIClient {
 
       return deleteResults;
     } catch (ApiFault e) {
-      log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
 
       DeleteResult deleteResult = new DeleteResult();
       deleteResult.setSuccess(false);
-      return new DeleteResult[]{deleteResult};
+      DeleteResult[] deleteResults = new DeleteResult[]{deleteResult};
+
+      if (e instanceof UnexpectedErrorFault && e.getExceptionMessage().contains("INVALID_SESSION_ID")) {
+        return retryAfterLogin(this::_delete, count + 1, sObjects, deleteResults);
+      } else {
+        log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
+        return deleteResults;
+      }
+      
     } catch (ConnectionException e) {
       log.warn("delete attempt {} failed due to connection issues; retrying {} {} in 5s", count, clazz, ids, e);
       Thread.sleep(5000);
@@ -903,15 +915,39 @@ public class SFDCPartnerAPIClient {
 
       return mergeResults;
     } catch (ApiFault e) {
-      log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
 
       MergeResult mergeResult = new MergeResult();
       mergeResult.setSuccess(false);
-      return new MergeResult[]{mergeResult};
+      MergeResult[] mergeResults = new MergeResult[]{mergeResult};
+
+      if (e instanceof UnexpectedErrorFault && e.getExceptionMessage().contains("INVALID_SESSION_ID")) {
+        return retryAfterLogin(this::_merge, count + 1, mergeRequests, mergeResults);
+      } else {
+        log.error("query failed due to {}: {}", e.getExceptionCode(), e.getExceptionMessage(), e);
+        return mergeResults;
+      }
+      
     } catch (ConnectionException e) {
       log.warn("merge attempt {} failed due to connection issues; retrying {} {} in 5s", count, clazz, ids, e);
       Thread.sleep(5000);
       return _merge(count + 1, mergeRequests);
     }
+  }
+
+  private interface CallableQuery<QueryResult> {
+    QueryResult call() throws ConnectionException, InterruptedException;
+  }
+  
+  private <T, R> R retryAfterLogin(SObjectsFunction<T, R> SObjectsFunction, int count, T input, R errorResult) throws InterruptedException {
+    try {
+      partnerConnection.get().login(authContext.username, authContext.password);
+      return SObjectsFunction.apply(count + 1, input);
+    } catch (ConnectionException e) {
+      return errorResult;
+    }
+  }
+
+  private interface SObjectsFunction<T, R> {
+    R apply(int count, T input) throws InterruptedException;
   }
 }
