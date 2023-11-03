@@ -693,15 +693,13 @@ public class SFDCPartnerAPIClient {
           throw e;
         }
 
-        if (e instanceof ApiFault) {
-          ApiFault apiFault = (ApiFault) e;
+        if (e instanceof ApiFault apiFault) {
           if (apiFault instanceof UnexpectedErrorFault && apiFault.getExceptionMessage().contains("INVALID_SESSION_ID")) {
             partnerConnection.get().login(authContext.username, authContext.password);
           } else {
             log.error("query failed due to {}: {}", apiFault.getExceptionCode(), apiFault.getExceptionMessage(), e);
             throw e;
           }
-
         } else if (e instanceof ConnectionException) {
           log.warn("query attempt {} failed due to connection issues; retrying in 5s", count, e);
           Thread.sleep(5000);
@@ -749,7 +747,6 @@ public class SFDCPartnerAPIClient {
 
       return saveResults;
     } catch (ApiFault e) {
-
       SaveResult saveResult = new SaveResult();
       saveResult.setSuccess(false);
       SaveResult[] saveResults = new SaveResult[]{saveResult};
@@ -803,7 +800,6 @@ public class SFDCPartnerAPIClient {
 
       return saveResults;
     } catch (ApiFault e) {
-
       SaveResult saveResult = new SaveResult();
       saveResult.setSuccess(false);
       SaveResult[] saveResults = new SaveResult[]{saveResult};
@@ -859,7 +855,6 @@ public class SFDCPartnerAPIClient {
 
       return deleteResults;
     } catch (ApiFault e) {
-
       DeleteResult deleteResult = new DeleteResult();
       deleteResult.setSuccess(false);
       DeleteResult[] deleteResults = new DeleteResult[]{deleteResult};
