@@ -701,7 +701,7 @@ public class SFDCPartnerAPIClient {
             throw e;
           }
         } else if (e instanceof ConnectionException) {
-          log.warn("query attempt {} failed due to connection issues; retrying in 5s", count, e);
+          log.warn("query attempt {} failed due to connection issues ({}); retrying in 5s", count, e.getMessage());
           Thread.sleep(5000);
         }
         else {
