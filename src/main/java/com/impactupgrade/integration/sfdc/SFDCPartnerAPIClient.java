@@ -347,12 +347,12 @@ public class SFDCPartnerAPIClient {
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   public List<SObject> queryList(String queryString) throws ConnectionException, InterruptedException {
-    return Stream.of(_query(queryString).getRecords())
+    return Stream.of(query(queryString).getRecords())
         .collect(Collectors.toList());
   }
 
   public <T> List<T> queryList(Class<T> eClass, String queryString) throws ConnectionException, InterruptedException {
-    return Stream.of(_query(queryString).getRecords())
+    return Stream.of(query(queryString).getRecords())
         .map(sObject -> toEnterprise(eClass, sObject))
         .collect(Collectors.toList());
   }
@@ -366,9 +366,9 @@ public class SFDCPartnerAPIClient {
       throws ConnectionException, InterruptedException {
     QueryResult queryResult;
     if (previousQueryLocator == null) {
-      queryResult = _query(queryString);
+      queryResult = query(queryString);
     } else {
-      queryResult = _queryMore(previousQueryLocator);
+      queryResult = queryMore(previousQueryLocator);
     }
 
     // Silly, but needs to be mutable.
@@ -382,22 +382,22 @@ public class SFDCPartnerAPIClient {
   }
 
   public Optional<SObject> querySingle(String queryString) throws ConnectionException, InterruptedException {
-    return Stream.of(_query(queryString).getRecords())
+    return Stream.of(query(queryString).getRecords())
         .findFirst();
   }
 
   public <T> Optional<T> querySingle(Class<T> eClass, String queryString) throws ConnectionException, InterruptedException {
-    return Stream.of(_query(queryString).getRecords())
+    return Stream.of(query(queryString).getRecords())
         .map(sObject -> toEnterprise(eClass, sObject))
         .findFirst();
   }
 
-  public long queryCount(String queryString) throws ConnectionException, InterruptedException {
-    return _query(queryString).getSize();
+  public QueryResult query(String queryString) throws ConnectionException, InterruptedException {
+    return queryWithRetry(() -> partnerConnection.get().query(queryString));
   }
 
-  public QueryResult query(String queryString) throws ConnectionException, InterruptedException {
-    return _query(queryString);
+  private QueryResult queryMore(String previousQueryLocator) throws ConnectionException, InterruptedException {
+    return queryWithRetry(() -> partnerConnection.get().queryMore(previousQueryLocator));
   }
 
   public SaveResult[] insert(List<Object> objects) throws InterruptedException {
@@ -669,14 +669,6 @@ public class SFDCPartnerAPIClient {
       Object value = e.getValue();
       return value == null ? "" : value + "";
     }));
-  }
-
-  private QueryResult _query(String queryString) throws ConnectionException, InterruptedException {
-    return queryWithRetry(() -> partnerConnection.get().query(queryString));
-  }
-
-  private QueryResult _queryMore(String previousQueryLocator) throws ConnectionException, InterruptedException {
-    return queryWithRetry(() -> partnerConnection.get().queryMore(previousQueryLocator));
   }
 
   private QueryResult queryWithRetry(CallableQuery<QueryResult> callableQuery) throws ConnectionException, InterruptedException {
