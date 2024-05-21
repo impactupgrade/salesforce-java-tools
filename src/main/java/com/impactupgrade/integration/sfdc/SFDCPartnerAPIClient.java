@@ -396,7 +396,7 @@ public class SFDCPartnerAPIClient {
     return queryWithRetry(() -> partnerConnection.get().query(queryString));
   }
 
-  private QueryResult queryMore(String previousQueryLocator) throws ConnectionException, InterruptedException {
+  public QueryResult queryMore(String previousQueryLocator) throws ConnectionException, InterruptedException {
     return queryWithRetry(() -> partnerConnection.get().queryMore(previousQueryLocator));
   }
 
