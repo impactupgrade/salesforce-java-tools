@@ -115,6 +115,11 @@ public class SFDCPartnerAPIClient {
           }
         }
       });
+  
+  // Allows clients to temporarily tweak the raw connection. Ex: setting a header.
+  public PartnerConnection getPartnerConnection() {
+    return partnerConnection.get();
+  }
 
   public SFDCPartnerAPIClient(String username, String password, String url) {
     authContext = new AuthContext();
